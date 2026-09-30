@@ -35,22 +35,24 @@ Each release brings:
 ## Before you install: set `JINKO_API_KEY`
 
 Every host authenticates with a Jinko API key, a `jnk_…` key. Create one in the Jinko
-dashboard (dashboard.gojinko.com → Developers → API keys), then export it where your agent
-runs:
+dashboard (dashboard.gojinko.com → Developers → API keys).
+
+**Claude Code, Codex and Vellum** read it from the `JINKO_API_KEY` environment variable.
+Export it in the shell session you start the agent from, reading it from your secret
+manager rather than writing the key into a plaintext file such as a shell profile:
 
 ```bash
-export JINKO_API_KEY=jnk_your_key_here
+export JINKO_API_KEY="$(<your secret manager> read <jinko-api-key-item>)"
 ```
-
-Add it to your shell profile (`~/.zshrc`, `~/.bashrc`) to keep it across sessions.
 
 - **Claude Code** sends it as `Authorization: Bearer ${JINKO_API_KEY}`. If the variable is
   unset, Claude Code sends the literal text `${JINKO_API_KEY}` and the server answers 401:
   set the variable before you start Claude Code.
 - **Codex** reads it through `bearer_token_env_var`.
-- **Cursor** declares `JINKO_API_KEY` as a plugin variable used in the `Authorization`
-  header.
 - **Vellum** reads it through the plugin's local MCP proxy.
+
+**Cursor** is different: the plugin declares `JINKO_API_KEY` as a plugin variable, used in
+the `Authorization` header, not as a shell environment variable. See [Cursor](#cursor) below.
 
 ## Install
 
@@ -80,9 +82,13 @@ Or, in the Codex TUI, add the marketplace as above and pick `jinko` from `/plugi
 
 - **Cursor Marketplace:** install Jinko from the Cursor Marketplace once it is approved there.
 - **Teams and Enterprise:** Dashboard → Plugins & MCPs → Team Marketplaces → Add Marketplace
-  → Import from Repo, and paste `https://github.com/jinkoso/jinko-agent-plugins`.
+  → Import from Repo, and paste `https://github.com/jinkoso/jinko-agent-plugins`. A team
+  admin then sets the `JINKO_API_KEY` value in the dashboard under **Plugins**, at install
+  time or later through **Configure** on the plugin.
 - **Individual, from this repository:** copy `plugins/cursor` into
   `~/.cursor/plugins/local/jinko`, then restart Cursor or run **Developer: Reload Window**.
+  How a local install picks up the `JINKO_API_KEY` plugin variable is still being verified;
+  this section will say how once it is confirmed.
 
 ### Vellum
 
