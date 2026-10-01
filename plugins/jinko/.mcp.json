@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "jinko": {
+      "url": "https://mcp.builders.gojinko.com/mcp",
+      "bearer_token_env_var": "JINKO_API_KEY"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "jinko-agent-plugins",
+  "owner": {
+    "name": "Jinko",
+    "email": "dev@gojinko.com"
+  },
+  "metadata": {
+    "description": "Jinko travel plugin for Cursor",
+    "version": "2.31.1"
+  },
+  "plugins": [
+    {
+      "name": "jinko",
+      "source": "./plugins/cursor",
+      "description": "Search flights, hotels and car rentals, book trips, and manage bookings with the Jinko Travel API. Connects to the Jinko MCP server for live pricing, trip management, cancellation and payment."
+    }
+  ]
+}

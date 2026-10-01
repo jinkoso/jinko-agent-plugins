@@ -1,0 +1,13 @@
+interface:
+  display_name: "Jinko Travel"
+  short_description: "Search, price and book flights, hotels and rental cars through Jinko's MCP tools."
+  default_prompt: "Use the jinko-travel skill to search, price and book travel with the Jinko MCP server. Start from what I already know (destination, dates) and confirm any cached price with a live search before offering to book."
+policy:
+  allow_implicit_invocation: true
+dependencies:
+  tools:
+    - type: mcp
+      value: jinko
+      description: "Jinko Builder MCP"
+      transport: streamable_http
+      url: "https://mcp.builders.gojinko.com/mcp"

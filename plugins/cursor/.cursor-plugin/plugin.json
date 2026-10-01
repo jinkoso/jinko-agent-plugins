@@ -1,0 +1,32 @@
+{
+  "name": "jinko",
+  "description": "Search flights, hotels and car rentals, book trips, and manage bookings with the Jinko Travel API. Connects to the Jinko MCP server for live pricing, trip management, cancellation and payment.",
+  "version": "2.31.1",
+  "author": {
+    "name": "Jinko"
+  },
+  "homepage": "https://gojinko.com",
+  "repository": "https://github.com/jinkoso/jinko-agent-plugins",
+  "license": "MIT",
+  "keywords": [
+    "travel",
+    "flights",
+    "hotels",
+    "car-rental",
+    "booking",
+    "mcp"
+  ],
+  "variables": {
+    "type": "object",
+    "properties": {
+      "JINKO_API_KEY": {
+        "type": "string",
+        "title": "Jinko API key",
+        "description": "Tenant API key (jnk_...) sent as Authorization: Bearer to the Jinko MCP server"
+      }
+    },
+    "required": [
+      "JINKO_API_KEY"
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "jinko": {
+      "url": "https://mcp.builders.gojinko.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${JINKO_API_KEY}"
+      }
+    }
+  }
+}
