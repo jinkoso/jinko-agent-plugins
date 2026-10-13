@@ -107,11 +107,19 @@ Europe.
 - `find_destination` wants AIRPORT codes, not city codes, and wants every airport that serves the
   origin — `["CDG", "ORY"]` for Paris, not `["PAR"]`. Resolve the city rather than recalling its
   airports: `?place=PAR` returns exactly that list.
-- `flight_calendar` takes CITY codes by default. A city code already covers every airport in the
-  metropolitan area — do not expand it yourself, and do not send a list of airports where one city
-  code says the same thing.
-- `price_monitoring` prefers city codes, and pins to an airport only when the traveller committed to
-  one.
+- `flight_calendar` takes a city code or an airport code and reads it by the platform's one rule
+  for an untyped code: a code that names a multi-airport city is searched as the city; every other
+  code is searched as the airport. A city code already covers every airport in the metropolitan
+  area — do not expand it yourself, and do not send a list of airports where one city code says the
+  same thing.
+- `price_monitoring` and `flight_search` read an untyped code by the same rule and take
+  `origin_type` / `destination_type` to override it. Send the city code when the traveller named a
+  city, and `"airport"` when they named an airport.
+- Some codes are BOTH a city code and that city's main airport: `LAX`, `MIA`, `LAS`, `PHX`, `HOU`,
+  `SIN`, `TPE`, `CPH`, `MEL` and others. Untyped, they are the CITY. On `flight_search` the
+  provider decides what that city holds, so untyped `LAX` returns flights into Ontario (`ONT`) too,
+  often as the cheapest offers. A traveller who said "LAX" named the airport: send
+  `destination_type: "airport"`. One who said "Los Angeles" named the city: send `LAX` untyped.
 - Ten codes look like airports and are not: `BJS`, `CHI`, `LON`, `MIL`, `NYC`, `PAR`, `TYO`, `WAS`,
   `YMQ` and `YTO` are "all airports in this metro" aggregates. They are fine as a city code on a
   search; they are not an entry for an airport list.

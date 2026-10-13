@@ -35,15 +35,42 @@ Traveler data — IMPORTANT: NEVER invent or fabricate traveler data. Before cal
 
 If a required field is missing, ASK the user. Do not use placeholder or default values.
 
-Ancillary flow: after adding an item and setting travelers, check the trip response for
-`available_ancillaries` on trip items. If ancillaries are available, offer them to the user before
-proceeding to checkout. Use `select_ancillaries` with the `offer_id`s from `available_ancillaries`.
-Full replacement semantics — send all desired selections.
+Ancillary flow: add the item and set travelers, then quote/price before selecting ancillaries.
+On Builder MCP, call `checkout` to quote (do not pay yet), then `get_trip` to read each item's
+`available_ancillaries`. Offer them before payment. Use `trip(select_ancillaries)` with the returned
+`offer_id`s, then call `checkout` again for the updated total. Full replacement — send all desired
+selections, including bags and seats, in each call.
+
+### Seat selection
+
+Each seat offer (`type: "seat"`) covers one segment and carries `seat_map.seats[]`. Show only
+`available: true` seats, their `seat_number`, whether `chargeable`, and the price per passenger for
+that segment. Free seats cost 0 (their price may be absent); show the returned price for paid seats
+and ask before choosing one. REST's exact seat price is `price_money`.
+
+Take `pax_ref_id` from the trip's `travelers[].pax_ref_id`. Send one selection per passenger per
+segment: `{offer_id, pax_ref_id, segment_ref_ids: [that offer's segment], seat_number}`. Each
+passenger gets at most one seat per segment; two passengers cannot share a seat.
+
+- Builder MCP: `checkout` → `get_trip` → `trip(select_ancillaries)` → `checkout` → payment.
+- REST: `GET /v1/trip/{trip_id}/ancillaries` quotes automatically; wait for `status: "ready"`
+  (`202` / `status: "pricing"`: poll the same URL using `Retry-After`), then
+  `POST /v1/select_ancillaries` with `trip_id`, `item_id`, and `selections`, then checkout.
+- CLI (`@gojinko/cli`): `jinko get-ancillaries --trip-id <id>` quotes and lists the map; then
+  `jinko select-ancillaries --trip-id <id> --item-id <item> --seat <offer_id>:<pax_ref_id>:<seat_number>`.
+  Repeat `--seat` for each passenger/segment; check the listing is ready before selecting.
+
+The checkout total includes selected seat prices. Paid seats are issued after ticketing; a seat
+refused by the airline is refunded automatically without failing the flight booking. Read
+`booked_ancillaries` for the actual seat outcome, including `seat_number`, `pax_ref_id`,
+`segment_ref_ids`, `status` and `failure_reason`; selection alone is not confirmation.
+Changing seats after booking/fulfillment is refused: HTTP 409,
+"trip is fulfilled and can no longer be modified".
 
 Flows:
 
 - Flights: `flight_calendar` → `flight_search` → `trip(add_item)` → `trip(upsert_travelers)` →
-  [`trip(select_ancillaries)`] → `checkout`
+  [`checkout` → `get_trip` → `trip(select_ancillaries)`] → `checkout`
 - Hotels: `hotel_search` → `trip(add_item)` → `trip(upsert_travelers)` → `checkout`
 - Mixed: both in the same trip — one cart, one checkout
 
@@ -52,11 +79,11 @@ Flows:
 Checkout a trip — returns the web `checkout_url` a human opens to pay, plus the `agent_spt_params` an
 agent can use to pay programmatically (no browser).
 
-Prerequisites (call these first via the `trip` tool):
+Prepare the trip before payment:
 
 - `trip(add_item)` → add the chosen flight or hotel to the trip
 - `trip(upsert_travelers)` → set traveler details + contact info
-- `trip(select_ancillaries)` [optional] → add bags / seats / meals before quoting (flights only)
+- `trip(select_ancillaries)` [optional] → select bags / seats / meals after quoting, before payment (flights only; see [seat selection](#seat-selection))
 
 Usage: `checkout({ trip_id })`
 
@@ -150,8 +177,17 @@ calling):
 
 - `flight_refund` — cancel a booked flight, refunding the tickets or voiding them while they are still
   inside the airline's void window: preview → (user confirms the amount) → commit → status.
+  The fare refund is immediate; a paid seat settled by the airline is separate, in `seat_refunds`
+  with `status: "pending_airline_refund"`. Show each pending seat line from the preview and tell the
+  traveller: "Your seat will be refunded once the airline refunds us." Never promise that seat
+  refund immediately or include it in the immediate fare refund. A second cancellation of an
+  already-cancelled booking is refused with `reason_code: "already_cancelled"` (also at preview).
 - `flight_exchange` — exchange a booked flight for a different itinerary: shop → price → (user
-  confirms) → commit → status. The `session_reference` from pricing must be passed to commit.
+  confirms) → commit → status. Pass the `session_reference` from pricing to commit. A price refused
+  because the exchange can't be refunded automatically returns no `session_reference`: if the traveller
+  confirms, commit the same `offer_id` without one, which sends the request to Jinko support. That commit
+  answers with `manual_handling: { status: "pending" }`; tell the traveller Jinko support will complete
+  the exchange and the refund; until then `get_booking` shows the exchange as with Jinko support.
 - `hotel_cancel` — cancel a hotel booking: preview → (user confirms) → commit → status.
 - `ground_cancel` / `ground_exchange` (only when listed in your tools; not on every deployment) —
   cancel, or exchange for a new date and/or stations: preview → (user confirms) → commit → status.

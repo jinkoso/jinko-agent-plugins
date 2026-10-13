@@ -119,6 +119,13 @@ The arithmetic, a worked example and the running total: [references/hotels.md �
 
 Hotels: exploring a destination → `hotel_search` Mode B; the user named a specific hotel → `hotel_search` Mode A; the user wants a closer look at one result → `hotel_details`.
 
+**Hotel dates, party and filters.** Settle four things before `hotel_search`; the rules and examples are in references/hotels.md — [Dates](references/hotels.md#dates--form-the-stay-before-you-call), [Party](references/hotels.md#party--what-to-send-when-none-is-stated), [A period to compare](references/hotels.md#a-period-to-compare--at-most-three-stays) and [Filters](references/hotels.md#filters--send-every-constraint-that-has-one):
+
+- Dates: a check-in with a length, or one named night, is a complete stay — compute the check-out and search, do not ask. A month with no day is a question, never an invented date.
+- Party: when none is stated, search 2 adults per room and say so in the answer; confirm the real party before `trip(add_item)`.
+- Filters: send every stated constraint that has a filter (review score, stars, nightly budget, facility, property type, brand). Check the rest on the hotels you present, or say it was not applied.
+- A period to compare ("the cheapest night in March"): at most three `hotel_search` calls, one stay each — never one call per night.
+
 Cars: rent / hire a car between two date-times → `car_search`. Ground (only if `find_ground` is in your tool list): train, bus/coach or ferry between two places → `find_ground`.
 
 Existing booking: inspect → `get_booking` (`booking_ref` + `last_name`) or `get_trip` (`trip_id`). Cancel a flight → `flight_refund`; change a flight → `flight_exchange`; cancel a hotel → `hotel_cancel`; ground (if listed) → `ground_cancel` / `ground_exchange`; end a rental → `car_cancel`; change a rental → `car_exchange`.
@@ -131,7 +138,7 @@ Each step depends on the previous one — do not skip steps.
 2. `flight_search` returns flights with fare options and a `trip_item_token` per fare; `hotel_search` returns rates with an `htl_*` `offer_id`. If `flight_search` status is `"flight_unavailable"`: show the alternatives and let the user choose.
 3. `trip` with `add_item` and the token of the fare / rate the user chose → creates the trip, returns `trip_id`. Flights and hotels (and cars) can be added to the same trip: one cart, one Stripe checkout.
 4. `trip` with `upsert_travelers` (`trip_id`) → set real passenger info and contact (MUST be provided by the user).
-5. Optional: `trip` with `select_ancillaries` → bags, seats, meals (check `available_ancillaries` in the trip response; flights only).
+5. Optional flight ancillaries: `checkout` to quote/price first (do not pay yet) → `get_trip` for `available_ancillaries` and the seat map → `trip(select_ancillaries)`. Show available seats and free/paid prices per passenger; select each numbered seat with `seat_number` + `pax_ref_id`. See [seat selection](references/booking.md#seat-selection) before choosing.
 6. `checkout(trip_id)` → one synchronous call: the quote is scheduled and polled until ready, fulfillment is scheduled, and a Stripe `checkout_url` PLUS `agent_spt_params` come back.
 7. Pay — human path: the user completes payment in the browser at `checkout_url`; Stripe webhooks finalize the booking, no client-side confirm step. Agent path: mint a Shared Payment Token scoped to `agent_spt_params`, then `submit_agent_payment(trip_id, shared_payment_token)`; on success it returns `booking_ref` (JNK-XXXXXX) — keep it. A 3DS step-up or decline falls back to `checkout_url`.
 8. Any time after step 3: `get_trip(trip_id)` → cart, quote, fulfillment and booking state. It carries `booking_ref` as soon as fulfillment is scheduled — possibly before payment completes — so read `fulfillment.status` instead of treating its presence as paid.
@@ -141,7 +148,7 @@ Full detail for each step: [references/booking.md](references/booking.md).
 ## Rules that always apply
 
 - Cached prices are indicative. `flight_calendar` and `price_monitoring` return cached fares whose price accuracy is roughly 80% even at the highest-confidence cache age, and which no live-only filter has narrowed (see Which tool first). A `flight_calendar`, `find_destination` or `price_monitoring` fare is the price for ONE ADULT: never present it as the confirmed price for the party; for more than one traveller, the confirmed party price comes from `flight_search`. For estimated party totals, use the adult multiplier and estimate label in [references/flights.md › Cached prices](references/flights.md#cached-prices-are-indicative--confirm-live-before-presenting-a-bookable-fare). For these cached tools' `max_total` / `max_price`, divide a whole-trip budget by the number of adults only and treat it as a loose pre-filter; send a per-person budget as-is. The exact whole-trip check is `flight_search`'s `max_price`: send the user's whole-trip budget unchanged, or multiply a per-person budget by the number of travellers. On `price_monitoring`, `traveler_counts` does not change the price, the `max_price` cap, or anything in the response; price and cap are for one adult. Use them to identify good candidate dates and routes, then ALWAYS re-run live shopping — `flight_search` with `price_check` and the `offer_token`, or `flight_search` with `search` on the exact dates — to confirm the price before presenting a fare as bookable or adding it to a trip.
-- Never fabricate traveler data. Always ask the user for real passenger details; never use placeholder or default values.
+- Never fabricate traveler data. Always ask the user for real passenger details; never use placeholder or default values. The party of a hotel SEARCH is not traveler data: when the user stated none, search 2 adults per room and say so ([references/hotels.md › Party](references/hotels.md#party--what-to-send-when-none-is-stated)); the travellers put on a trip are still never invented.
 - If `flight_search` returns status `"flight_unavailable"`, do NOT proceed to booking.
 - Refunds, exchanges and cancellations: always preview (or shop and price) before committing, show the customer the amount, and get explicit user confirmation. `fee_known: false` means the fee is UNKNOWN — never present it as free.
 - Do not retry in loops on errors. Rate limit: 1000 requests / 30 days per API key. `status: "stale"` from `price_monitoring` is a correct answer, not a reason to loop.
@@ -166,5 +173,6 @@ If no Jinko tool is listed, the key is missing or rejected: tell the user to set
 - [references/flights.md](references/flights.md) — the four flight tools: inputs, date and airport-code rules, `flight_search` filters and response fields.
   Before answering with flight results, apply [Before you answer (flights)](references/flights.md#before-you-answer-flights) to all results already fetched in the session.
 - [references/places.md](references/places.md) — turning what the traveller said into IATA codes: when to resolve rather than recall, ambiguity, country-level transit exclusions and the 9-airport provider cap, a radius around a city.
-- [references/hotels.md](references/hotels.md) — `hotel_search` (two modes, the 422 low-confidence recovery, one budget across flights and hotel, examples) and `hotel_details`.
+- [references/hotels.md](references/hotels.md) — `hotel_search` (two modes, forming the dates and the party, the three-stay budget for a period, filters, the 422 low-confidence recovery, one budget across flights and hotel, examples) and `hotel_details`.
+  Before answering with hotel results, apply [Before you answer (hotels)](references/hotels.md#before-you-answer-hotels).
 - [references/booking.md](references/booking.md) — `trip`, `checkout`, `submit_agent_payment`, `get_trip`, `get_booking`, `booking_ref` vs `booking_reference`, the multi-domain cart, and the post-booking / ground / car contracts.

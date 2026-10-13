@@ -31,8 +31,12 @@ cached tools and multiply it by the number of travellers for `flight_search`'s `
 
 - All dates in query parameters (`departure_dates`, `departure_date_ranges`, `return_dates`,
   `return_date_ranges`) must be today or in the future; never use past dates.
-- Origin and destination must be IATA city codes by default (PAR, NYC, LON), or IATA airport codes if
-  the user specifies an airport (CDG, JFK, LHR).
+- Origin and destination: the IATA city code when the user named a city (PAR, NYC, LON), the IATA
+  airport code when they named an airport (CDG, JFK, LHR). An untyped code follows one platform
+  rule: a code that names a multi-airport city is searched as the city; every other code is
+  searched as the airport. `LAX`, `MIA` and `LAS` are both a city code and that city's main
+  airport, so untyped they are the city — see [places.md › Codes on the discovery
+  tools](places.md#codes-on-the-discovery-tools).
 - `flight_calendar`: `trip_type` is REQUIRED — always send it; a call without it is rejected. Send
   `trip_type="roundtrip"` unless the user explicitly asked for a one-way trip, and `"oneway"` only
   then. This does NOT apply to `flight_search` — there `trip_type` is optional and no return date
@@ -47,11 +51,18 @@ cached tools and multiply it by the number of travellers for `flight_search`'s `
 - When nearby dates are requested ("±2 days", "flexible by a few days"), send a `flight_calendar`
   window around the date, then run the live stage under SKILL.md's `next` / rule 3 guidance;
   never ask which exact day.
+  "Around X" or "flexible" with no number means ±3 days; for ±N days around X, the
+  window is X−N to X+N, never the anchor date alone (keep dates today or later).
+  For a price monitor on a flexible window, explain that `price_monitoring` takes one exact
+  date and offer `flight_calendar` for the window.
 - A region with two paired airports ("Puglia": BRI and BDS) means search both, using two calls or
   a city code covering both, without asking which airport.
 - Send `departure_date_ranges` as `[{ "start": "YYYY-MM-DD", "end": "YYYY-MM-DD" }]`, with keys
   `start` / `end`, not `start_date` / `from`.
 - `stay_days` is an integer; a range uses `stay_days_range: { "min": n, "max": m }`.
+  When the user explicitly asked for a round trip but gave neither a return date nor a stay
+  length, ask for the stay length, or search one-way and say so — never price a next-day
+  return / 1-day round trip the user did not ask for.
 - Fill as many search parameters as possible from the user's intent to get the best results.
 
 Worked example: if today is 2026-09-26, "Paris to Rome, 4–6 weeks out, for 5–7 nights" becomes:
@@ -146,8 +157,9 @@ Input notes:
 
 - Monitoring supports only exact dates, `cabin_class`, `direct_only`, carriers and a one-adult
   `max_price` cap.
-- Origin / destination: IATA city code preferred (PAR, NYC, LON); pin to an airport only when the
-  user actually committed to a specific airport.
+- Origin / destination: the city code when the user named a city (PAR, NYC, LON); `origin_type` /
+  `destination_type` `"airport"` when they named an airport. Untyped, a multi-airport city code is
+  the city and any other code is the airport; `LAX`, `MIA` and `LAS` count as cities.
 - Use the SAME filter set the user has been monitoring against between polls.
 - `max_price` caps a ONE-ADULT fare, and the price returned is one adult's too: divide a whole-trip
   budget by the number of adults only as a loose pre-filter, or send a per-person budget as-is.
@@ -184,9 +196,23 @@ Optional filters: `return_date`, `trip_type`, `cabin_class`, `max_stops`, `multi
 `same_connection_airport_only`, `same_origin_airport_only`, `same_turnaround_airport_only`,
 `origin_type`, `destination_type`.
 
+- `origin` / `destination`: the city code when the user named a city, the airport code when they
+  named an airport. Untyped, a code that names a multi-airport city is searched as the city and any
+  other code as the airport. `LAX`, `MIA` and `LAS` are both a city code and that city's main
+  airport, so untyped they are the CITY, and the provider returns other airports of that city —
+  untyped `LAX` returns Ontario (`ONT`) fares, often as the cheapest offers. When the user said
+  "LAX", send `destination_type: "airport"`; when they said "Los Angeles", send `LAX` untyped.
+  Read each offer's legs for the airports actually flown; the offer-level city code does not change.
 - Always send `passengers` for the real party, on both `search` and `price_check` calls.
   It is one object of counts, never an array: `"passengers": { "adults": 2, "children": 1, "infants": 0 }`
   (children 2–11, infants under 2 on a lap; omitted keys default to 1 adult and 0).
+  Travellers aged 12 or over count as `adults` (teenagers are adults for airfare).
+  For "a family" or "N seats" without a breakdown, ask who travels (adults / children 2–11 /
+  infants) before searching.
+  When the user states a traveller count, carry exactly that count into the `flight_search`
+  party on both `search` and `price_check` calls. A seat count covers adults and children
+  only: lap infants under 2 have no seat and are added on top ("two seats for two adults and
+  a lap infant" is `{ "adults": 2, "children": 0, "infants": 1 }`).
 - When the user caps stops, send `max_stops` (0–2); `direct_only` is deprecated on `flight_search`,
   so send `max_stops: 0` for nonstop flights.
 - When the user specifies a time-of-day window, send the corresponding `departure_time_range`,
@@ -210,9 +236,7 @@ Cabin intent applies only to this live `search` mode:
   requested value. The representative cabin is the cabin on the longest flight segment, so a shorter
   feeder or connection may use another cabin. Fares with an empty or unrecognized representative
   cabin are dropped.
-- An explicit cabin appears in `applied_filters`; `filter_enforcement` reports
-  `enforced_by: "post_filter"` and `exhaustive: false`. An omitted or `null` cabin does not appear as
-  applied. This does not change `flight_calendar`, `price_monitoring` or `price_check` behavior.
+- This does not change `flight_calendar`, `price_monitoring` or `price_check` behavior.
 
 Date flexibility: this call prices ONE exact date pair. "Give or take a day", open windows and date
 ranges go to `flight_calendar` first; when the user also gave a filter that only this tool has, the
@@ -234,23 +258,24 @@ available — ask the user to choose. Do NOT proceed to booking on `"flight_unav
 - Each flight includes detailed segments, fare options with baggage / refund / change rules, and a
   `trip_item_token` per fare. Every fare also carries `refundable`, `changeable` and
   `checked_bag_included` booleans.
-- `applied_filters` lists the search filters this result set enforces; `unapplied_filters` lists the
-  ones NO provider could enforce, each with a reason (and `filters_notice` spells the same thing out in
-  one sentence). A filter in `unapplied_filters` still has to be applied by you — the flights were not
-  narrowed by it. Both reports name a leg SIDE for the alternate-airport lists: an
-  `origin_alternate_airports` / `destination_alternate_airports` list appears as `"origin"` /
-  `"destination"`.
-- `origin_alternate_airports` / `destination_alternate_airports` take effect only against an AIRPORT
-  anchor. Sent with a city anchor (`origin_type` / `destination_type` `"city"`, or a code that resolves
-  to a city) the search still runs and returns flights, the list is ignored, and the side comes back in
-  `unapplied_filters` with the reason — that is a warning to relay, not an error.
-- A completed live `search` with no offers matching the current filters is successful. The public API
-  returns HTTP `204` with an empty body (`X-Jinko-Result: no_matches` and the instruction in
-  `X-Jinko-Instruction`). Builder MCP returns successful structured content with
-  `status: "empty"`, `reason: "no_matches"`, the same `instruction`, and `data.flights: []`:
-  "Search completed successfully, but no offers matched the current filters. Ask the user whether
-  they want to adjust the filters before searching again." Follow that instruction. Do not silently
-  relax the cabin or any other filter, and do not treat this outcome as a system failure.
+- Every filter that narrows the results (cabin, stops, price, airlines, times, connections, fare
+  conditions, aircraft) is applied exactly as sent: no returned flight violates it, and the search is never
+  widened (an `include_carriers` search returns those carriers only). Options that widen a search
+  (alternate or nearby airports) are searched where the source supports them, and sources search at
+  most 9 `via_airports` per leg. The result says nothing else about the filters.
+- `origin_alternate_airports` / `destination_alternate_airports` are searched beside an airport or a
+  city anchor: `origin` NYC with `["BOS"]` covers New York's airports and Boston. An alternate inside
+  the city is redundant and harmless.
+- A completed live `search` with no offers is successful. The public API returns HTTP `200` with
+  `offers: []`, `result: "no_matches"` and an `instruction` in the body. Builder MCP returns
+  successful structured content with `status: "empty"`, `reason: "no_matches"`, the same
+  `instruction`, and `data.flights: []`. When the request sent a narrowing filter the instruction is
+  "Search completed successfully, but no offers satisfied every filter sent: the filter combination is
+  too restrictive for this route and dates. Ask the user which filter to relax before searching
+  again." Otherwise it is "Search completed successfully, but no flights were found for this route
+  and dates. Ask the user whether to try other dates or airports before searching again." Follow the
+  instruction. Do not silently relax the cabin or any other filter, and do not treat this outcome as a
+  system failure.
 - If the live search cannot complete and has no eligible offers, HTTP `503` / MCP
   `error_code: "UPSTREAM_UNAVAILABLE"` means retry later with the same filters (respect
   `Retry-After` when supplied); HTTP `504` / MCP `error_code: "UPSTREAM_TIMEOUT"` means the provider

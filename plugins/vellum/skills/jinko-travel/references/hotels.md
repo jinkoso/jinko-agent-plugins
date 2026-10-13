@@ -14,10 +14,12 @@ Search live hotel inventory and rates. 10 credits per call.
 
 - `destination`: object — two distinct modes. Mode A (rate lookup): `{ hotel_name (+ optional
   country_code, city_name) }` or `{ hotel_ids }`. Mode B (hotel search): `{ query }`,
-  `{ city_name + country_code }`, `{ latitude + longitude (+ radius_km) }`, or `{ place_id }`.
-- `checkin`, `checkout`: YYYY-MM-DD
+  `{ city_name + country_code }`, or `{ latitude + longitude (+ radius_km) }`.
+- `checkin`, `checkout`: YYYY-MM-DD — how to form them from what the user said:
+  [Dates](#dates--form-the-stay-before-you-call).
 - occupancy: either `{ occupancies: [{ adults, children_ages? }, ...] }` (one entry per room) OR the
-  shorthand `{ adults, children?, rooms? }`
+  shorthand `{ adults, children?, rooms? }` — what to send when the user stated none:
+  [Party](#party--what-to-send-when-none-is-stated).
 
 ### Two modes — pick deliberately
 
@@ -28,9 +30,10 @@ MODE A (rate lookup — the user named a specific hotel):
   when known — lookup precision drops sharply on common names without scope. Returns 422
   `HOTEL_NAME_LOW_CONFIDENCE` if no candidate scores ≥ 0.7; see the error handling below.
 - `{ hotel_ids }`: re-shop a known set (from a prior search result).
-- In Mode A: filters are ignored (the user named the property), and the response includes
-  `nearby_alternatives` — up to 40 hotels within ~3 km of the matched property, in the same response
-  shape so the user can compare.
+- In Mode A: the property filters (`min_rating`, the star range, `min_reviews`, `hotel_type_ids`,
+  `chain_ids`, `facility_ids`) and `max_results` are ignored — the user named the property — but
+  `filters.max_budget_per_night` still applies. The response includes `nearby_alternatives` — up to
+  40 hotels within ~3 km of the matched property, in the same response shape so the user can compare.
 
 MODE B (hotel search — the user is exploring a destination):
 
@@ -51,9 +54,75 @@ MODE B (hotel search — the user is exploring a destination):
 - `{ latitude + longitude + radius_km }`: when the destination is an area, island or region with no
   obvious primary city — **and as the fallback whenever a name-based search comes back empty**, for any
   place including an ordinary city. `radius_km` up to 50.
-- `{ place_id }`: when you already have an upstream Place ID.
+- A Place ID is NOT a destination: the server answers 400 `place_id is not supported`. Use one of
+  the three shapes above.
 - If the user names something non-city (an island, region, archipelago, neighborhood), DO NOT pass it
   as `{ query }` — pick `{ city_name + country_code }` or `{ latitude + longitude + radius_km }`.
+
+### Dates — form the stay before you call
+
+`hotel_search` needs both `checkin` and `checkout`. Most messages that do not spell out a check-out
+still give one:
+
+- **A check-in and a length** — "3 nights from 12 June", "pour une nuit le 3 mai", "the night of
+  14 March", "a week from 3 August": `checkout` = `checkin` + the nights. That is a complete stay —
+  search, do not ask.
+- **One date and nothing else** — "a hotel in Ghent on Saturday 6 June": one night, `checkout` the
+  next day. Say so in the answer ("priced for one night, 6 → 7 June") so the user can correct it.
+- **A relative day or a named occasion** — "tonight", "tomorrow night", "this weekend", "New Year's
+  Eve": resolve it against today's date and state the dates you used. A weekend with no nights given
+  is Friday → Sunday.
+- **No year** — the next time that date occurs; `checkin` must be today or later.
+- **Arrival after midnight** — "landing at 00:40 on 4 May": the room is needed for the night that
+  began the evening before, so `checkin` is the previous date (3 May), and the answer says so.
+- **The trip already has dates** — flights chosen earlier in the conversation: the stay runs from the
+  arrival date to the departure date.
+- **A month, a season or "sometime in" with no day** — "five nights in Crete in May": NOT a date. Do
+  not pick a day and do not call `hotel_search`. Ask one question that offers a concrete stay ("Which
+  dates in May? I can price Sat 8 → Thu 13 May as a first look."). The one exception is a request to
+  compare ACROSS a period — see "A period to compare" below.
+
+Two examples:
+
+1. "Hôtel à Lyon, nuit du 14 mars 2027, 2 adultes" → `"checkin": "2027-03-14", "checkout": "2027-03-15"`,
+   no question.
+2. "A beach hotel in Mauritius in February, two adults" → no call; ask which dates, offering one stay.
+
+### Party — what to send when none is stated
+
+The occupancy decides which rooms and prices come back, and a rate is sold for the occupancy it was
+searched with.
+
+- **Stated** — send it as stated: `adults` for one or two adults in one room, `occupancies` (one entry
+  per room) for a larger party or one with children. A child needs an age (`children_ages`): when the
+  user mentions children without ages, ask for the ages — one question.
+- **Not stated** — do not ask, and do not leave it out (the search is refused without it). Send two
+  adults per room — `"adults": 2` for one room, or one `{ "adults": 2 }` entry per room when the user
+  gave a room count — and say so in the answer: "Priced for 2 adults in 1 room; tell me who is
+  travelling and I will re-price." A traveller who is plainly alone ("solo trip", "just me") is
+  `"adults": 1`.
+- **Before `trip(add_item)`** — when the party was your default, confirm the real party first. If it
+  differs, search again with it and add the NEW rate; never add a rate priced for another party.
+
+This default is a search parameter, not traveller data: names, dates of birth, contact details and
+documents always come from the user ([SKILL.md › Rules that always apply](../SKILL.md#rules-that-always-apply)).
+
+### A period to compare — at most three stays
+
+`hotel_search` prices ONE stay per call; there is no hotel price calendar. A request that spans a
+period — "the cheapest night in March", "compare June with July", "any weekend in May" — is answered
+from a sample, never with one call per night:
+
+- At most three `hotel_search` calls — three stays — per request. Spread them over the period: its
+  start, middle and end; the weekends when the user said weekends; one stay per month when months are
+  compared. Give them all the same length (the length the user gave, else one night), and include
+  both a weekend stay and a midweek stay when the period has both.
+- Keep the destination, party, currency and filters identical across the calls, so the prices compare.
+- In the answer, name the stays you priced, say that the other dates in the period were not checked,
+  and offer to price the dates the user picks. Go past three only when the user asks for it.
+- Exceptions: the user names more than three specific stays to compare — those are exact requests,
+  run them; a call that failed may be retried once. Loading more hotels for the same stay
+  (`next_handle`) is not a new stay.
 
 ### Error handling — 422 `HOTEL_NAME_LOW_CONFIDENCE` (Mode A only)
 
@@ -118,7 +187,9 @@ searched (`resolved_city`, `catalog_hotel_count`, `radius_km`):
 - `no_availability_for_dates` — the destination is fine; these dates are the constraint. Say so, naming
   `destination_resolution.resolved_city` and `catalog_hotel_count` ("all 193 properties in Saint-Malo
   are taken that night"). Then offer: other dates, or relax `min_rating` / `min_star_rating` /
-  `max_budget_per_night`, or a larger `radius_km`. Sanity-check `catalog_hotel_count` first, though —
+  `max_budget_per_night`, or a larger `radius_km`. A `facility_ids`, `hotel_type_ids` or `min_rating`
+  filter that matched nothing produces this same reason — see
+  [Filters](#filters--send-every-constraint-that-has-one). Sanity-check `catalog_hotel_count` first, though —
   it counts the matched group alone, so a wrong-spelling match reports a sold-out city that in fact has
   thousands of free rooms (see below).
 - `destination_not_found` — nothing matched. Other dates cannot help. Retry with
@@ -222,6 +293,54 @@ coordinates, and still do not report that the city has no hotels.
   deeper automatically when few fit. Also applies in Mode A. Prefer it over post-filtering results
   yourself.
 
+### Filters — send every constraint that has one
+
+The filters narrow the search itself; nothing removes a hotel afterwards unless you do. A constraint
+the user stated and you did not send is one the answer silently ignores. For each stated constraint:
+send its filter, or tell the user it was not applied.
+
+| The user says | Send |
+| --- | --- |
+| a review score — "rated 8.5 or more", "4.5 out of 5 on reviews" | `min_rating` on the 0–10 scale (a 5-point score × 2: 4.5 → 9) |
+| review words without a number — "well reviewed", "good reviews" / "top-rated", "excellent reviews" | `min_rating` 8 / 9, and say the threshold you used |
+| a number of reviews — "at least 500 reviews" | `min_reviews` |
+| a hotel class — "4-star", "at least 4 stars", "4 or 5 stars" / "exactly 4-star" | `min_star_rating` 4 / `min_star_rating` 4 with `max_star_rating` 4 |
+| a nightly price cap — "under 150 a night" | `max_budget_per_night`, ALWAYS with `currency` |
+| a hotel facility — pool, spa, parking, gym, pets allowed, airport shuttle, EV charging … | `facility_ids` with the facility's NAME |
+| a kind of property — hostel, ryokan, chalet, apartment, villa, resort, guesthouse, B&B … | `hotel_type_ids` with the type's NAME |
+| a brand — "an Accor hotel", "Hilton" | `chain_ids` with the brand slug (`"accor"`, `"hilton"`) |
+
+- **A review score is not a star rating.** `min_rating` is what guests scored (0–10);
+  `min_star_rating` is the hotel's class (1–5). "A well-reviewed 3-star" is both:
+  `min_star_rating` 3, `max_star_rating` 3, `min_rating` 8.
+- **Check the scores on what you present.** Every hotel line shows its stars and its guest rating.
+  Present only hotels that meet the user's threshold and say how many you left out — do not rely on
+  the filter alone: not every inventory applies `min_rating`, and the star filter drops hotels whose
+  star rating is missing.
+- **Names for `facility_ids` and `hotel_type_ids`.** The accepted names are listed on those two
+  parameters in the tool description — send names from that list, e.g.
+  `"filters": { "facility_ids": ["pool"], "hotel_type_ids": ["resort"] }`. If the description lists
+  no names, this server takes numeric ids and publishes none: leave the filter out and check the
+  hotels yourself (next points). "Boutique", "luxury" and "romantic" are styles, not property types.
+- **One required facility per search.** With several `facility_ids` the search keeps hotels having
+  ANY of them, not all. Send the one the user cannot do without and check the others on the hotels
+  you present.
+- **What no filter covers** is checked on the candidates: breakfast or board and free cancellation
+  (each rate line shows them), room features such as a sea view, a balcony, a kitchen or a bed type
+  (room names), a facility that is not on the list. `hotel_details` (1 credit) returns a hotel's
+  `facilities[]` — call it for the hotels you are about to recommend, at most five, never for the
+  whole list. Say which constraints you verified and which you could not.
+- **A `Warning:` line that names a filter entry** means that entry was NOT applied. Treat the
+  constraint as unsent: verify it on the candidates, or tell the user.
+- **Refused filters.** An error saying the filters "are not supported for HotelBeds searches" means
+  this inventory cannot filter on `min_rating`, `min_reviews`, `facility_ids`, `chain_ids` or
+  `hotel_type_ids`. Search again ONCE without those five (the star range and
+  `max_budget_per_night` still work), apply what the returned hotels let you check, and say which
+  constraints were not applied.
+- **An empty result with a filter set** can be the filter's doing whatever `empty_reason` says: search
+  once more without the facility, type or rating filter before telling the user anything about
+  availability.
+
 ### One budget across flights and hotel
 
 The order of calls is in [SKILL.md › Which tool first › One budget for flights and
@@ -299,11 +418,29 @@ rate seen and the total it would make (see "Error handling — an empty Mode B r
   `rooms[]` list.
 - Each room has a `rates[]` list. Each rate has an `offer_id` (the `htl_*` token), board type, refund
   policy, and `total_amount` + `currency`.
+- More hotels for the same search: when the result says more are available, call `hotel_search`
+  again with `{ "next_handle": "<the handle it gives>" }` as the ONLY argument — the dates, party,
+  currency and filters are held by the search.
 
 Next step: use the `trip` tool with `add_item` and the `offer_id` of the rate the user picks. Hotel
 items work alongside flight items in the same cart.
 
 Flow: `hotel_search` → `trip(add_item)` → `trip(upsert_travelers)` → `checkout`
+
+### Before you answer (hotels)
+
+Open the answer with what the prices are for — one or two lines, before the hotels:
+
+- **Place** — the hotel priced, or `destination_resolution.resolved_city`, whenever it is not exactly
+  what the user said (the result's "Searched: …" line; a named hotel matched `fuzzy`).
+- **Dates and nights** — from the first line of the result; say when you chose them ("one night, as
+  no check-out was given").
+- **Party** — the one the search ran with (`data.search_context.occupancies` in the structured
+  result); say when it was the 2-adult default.
+- **Filters** — the ones applied, and every stated constraint that was NOT applied or that you could
+  not verify.
+
+Prices are for the whole stay, in the currency sent — per room when two or more rooms were searched.
 
 ## hotel_details
 
