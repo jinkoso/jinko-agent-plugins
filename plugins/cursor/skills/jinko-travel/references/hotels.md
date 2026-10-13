@@ -171,8 +171,8 @@ Pick one, same three-way shape as `HOTEL_NAME_LOW_CONFIDENCE`:
    `{ latitude + longitude + radius_km }`.
 
 Don't silently auto-pick a candidate, and never say the city has no hotels — that's what an unknown
-city with no candidates looks like (still 200, `hotels: []`, `empty_reason`, unchanged from JIN-2245).
-Replaces the old workaround of retrying spelling variants by hand (JIN-2310).
+city with no candidates looks like (still 200, `hotels: []`, `empty_reason`).
+Replaces the old workaround of retrying spelling variants by hand.
 
 ### Error handling — an empty Mode B result is NOT an answer
 
@@ -227,14 +227,14 @@ Treat a single- or low-double-digit `catalog_hotel_count` for a city you would e
 **destination** problem: retry with the English-booking-site spelling, or with
 `{ latitude + longitude + radius_km }`. This overrides `empty_reason` — and note the last row is not a
 language difference at all, so the rule covers any variant spelling, not only translations.
-Cross-language aliases are not folded server-side yet (JIN-2289).
+Cross-language aliases are not folded server-side yet.
 
 `destination_resolution.status` (present on the city shape only) other than `resolved` means the
 search matched your string literally and may have covered only part of the city — a retry with
 coordinates is worth doing before reporting anything to the user.
 
 `destination_resolution` is present on every successful search, city or not, carrying `shape` and
-`match` — never absent, never a prose summary (JIN-2310):
+`match` — never absent, never a prose summary:
 
 - `shape`: `city | coordinates | place_id | query | hotel_name | hotel_ids` — which destination form
   was resolved.
@@ -277,8 +277,8 @@ on the city shape — treat a missing `match` as `exact` when `status` is `resol
 
 Separately: `city_name` sent **beside** coordinates is dropped, with a warning saying so. The
 coordinates anchor the search, and keeping the city string would narrow the area to properties whose
-stored city spelling matched exactly — measured on dev 2026-09-21, the same disc returns 170 catalog
-matches alone and 22 with `city_name: "Saint-Malo"`. Send one or the other, not both.
+stored city spelling matched exactly, which can leave out most of the hotels inside the disc. Send one
+or the other, not both.
 
 No `empty_reason` field at all means an older server: treat the empty result the same way — retry with
 coordinates, and still do not report that the city has no hotels.
