@@ -62,8 +62,8 @@ export const VELLUM_TOOL_CAP = 20;
 
 /**
  * Timeout for a forwarded `tools/call`. The SDK default is 60s, which is
- * below the latency of a live flight search (the remote fans out to GDS
- * and aggregator backends). Progress notifications reset it.
+ * below the latency of a live flight search (the remote queries several
+ * fare sources). Progress notifications reset it.
  */
 export const REMOTE_CALL_TIMEOUT_MS = 180_000;
 
