@@ -1,7 +1,7 @@
 {
   "name": "jinko",
   "description": "Search flights, hotels and car rentals, book trips, and manage bookings with the Jinko Travel API. Connects to the Jinko MCP server for live pricing, trip management, cancellation and payment.",
-  "version": "3.1.5",
+  "version": "3.4.0",
   "author": {
     "name": "Jinko",
     "url": "https://gojinko.com"
@@ -21,7 +21,7 @@
   "interface": {
     "displayName": "Jinko Travel",
     "shortDescription": "Flight, hotel and car-rental search, booking, and trip management",
-    "longDescription": "Search flights, hotels and car rentals, compare prices, book trips with ancillaries, and manage cancellations and refunds using the Jinko Travel API. Live flight pricing from multiple airlines via Sabre and TravelFusion.",
+    "longDescription": "Search flights, hotels and car rentals, compare prices, book trips with ancillaries, and manage cancellations and refunds using the Jinko Travel API. Live flight pricing from multiple airlines.",
     "developerName": "Jinko",
     "category": "Productivity",
     "capabilities": [

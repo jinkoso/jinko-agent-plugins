@@ -1,13 +1,13 @@
 # Flights — discovery and live search
 
-Four tools. Three read Jinko's price cache (`find_destination`, `flight_calendar`,
-`price_monitoring` — 1 credit per call); one hits live pricing (`flight_search` — 10 credits per
-call). Which one to call first is decided in
+Five tools. Four read Jinko's price cache (`find_destination`, `flight_calendar`, `find_dates`,
+`price_monitoring`); one hits live pricing (`flight_search`). `find_dates` takes `flight_calendar`'s inputs and answers like it; the calendar rules here
+apply to it. Which one to call first is decided in
 [SKILL.md › Which tool first](../SKILL.md#which-tool-first) and is not repeated here.
 
 ## Cached prices are indicative — confirm live before presenting a bookable fare
 
-`flight_calendar` and `price_monitoring` return fares from Jinko's price cache. Even at the
+`flight_calendar`, `find_dates` and `price_monitoring` return fares from Jinko's price cache. Even at the
 highest-confidence cache age their price accuracy is roughly 80%. Use them to identify good candidate
 dates and routes, then ALWAYS re-run live shopping to confirm the price before you present a fare as
 bookable or add it to a trip:
@@ -16,9 +16,9 @@ bookable or add it to a trip:
 - `flight_search` with `search` on the exact dates the user picked.
 
 Present cached figures to the user as indicative ("from about …"), never as the bookable price, and
-`flight_calendar` / `find_destination` / `price_monitoring` figures as a price for one adult ("from
-about … per adult"), never as the confirmed party total.
-For a cached fare from any of these three tools, multiply by the number of adults before quoting a
+`flight_calendar` / `find_dates` / `find_destination` / `price_monitoring` figures as a price for one
+adult ("from about … per adult"), never as the confirmed party total.
+For a cached fare from any of these four tools, multiply by the number of adults before quoting a
 total, and label it an estimate until `flight_search` prices the real party.
 
 For these cached tools' `max_total` / `max_price`, divide a whole-trip budget by the number of
@@ -77,7 +77,7 @@ Worked example: if today is 2026-09-26, "Paris to Rome, 4–6 weeks out, for 5�
 }
 ```
 
-Per-tool differences: `find_destination` wants AIRPORT codes, not city codes (see below);
+Per-tool differences: `find_destination` takes airport or city codes (see below);
 `price_monitoring` prefers city codes and pins to an airport only when the user committed to one.
 
 ## find_destination
@@ -85,8 +85,9 @@ Per-tool differences: `find_destination` wants AIRPORT codes, not city codes (se
 Discover travel destinations accessible from your departure airports. Search globally or filter to
 specific regions. Returns destinations sorted by cheapest available flight.
 
-- IMPORTANT: use airport codes (CDG, ORY, JFK), NOT city codes (PAR, NYC). Include all nearby
-  airports for best results (e.g. CDG + ORY for Paris).
+- Airport or city codes. A code that names a multi-airport city (`NYC`, `LON`, `PAR` — and `LAX`,
+  `MIA`, `LAS`, which a city shares with its main airport) covers every airport of that city; any other
+  code is that one airport. Include all nearby airports (e.g. `["JFK", "LGA", "EWR"]` for New York).
 - Next step: `next` supplies the `flight_calendar` calls for the best destinations to get specific
   flights with `offer_token`s for pricing.
 
@@ -101,8 +102,7 @@ specifies BOTH where they are flying FROM and where they are flying TO.
 - A short list of the best dates: set `limit`. The cheapest options on one given date: send
   `departure_dates` with that one date.
 - Its filter set is small. When the user also asked for a filter it does not take, the calendar only
-  picks the dates — see [SKILL.md › Which tool first](../SKILL.md#which-tool-first), rule 3; the
-  calendar's `next` carries `price_check` entries for the cheapest cached itineraries and, on an empty answer, complete `search` entries for concrete dates. For an **empty** calendar answer (`status: "empty"`), read `next.reason` first. With `beyond_booking_horizon`, run nothing live and apply the **Booking horizon** rule in [SKILL.md › Which tool first](../SKILL.md#which-tool-first). With `no_cached_fares_in_window`, run `flight_search` on the entries of `next.args` in the order listed — all of them (at most three) when this is the only cached answer, otherwise only as many as the shared live-search budget has left, naming the suggested dates not searched, each with the user's live-only filters and real party (`passengers`), and answer with the cheapest result that meets the filters, naming the dates searched; if every suggestion is empty, say so and name the dates; if `next.args` is empty, the window is in the past — say so. For a **non-empty** calendar answer, call `flight_search` with `{ price_check: <the entry's price_check>, passengers: <real party> }` only, using the chosen `next.args` entry; its `departure_date`, `return_date` and `total_amount` are context, not arguments, and no `search` is sent with `price_check`; when the user asked for a live-only filter, rule 3 still decides the candidates and the filters. If `price_check` answers "Offer not found", or its price-check status is `offer_unavailable` ("the selected offer is no longer available"),, run `flight_search` with `search` on that entry's `departure_date` / `return_date`, the same route, and the user's filters and real party (`passengers`) — do not report the offer as unavailable to the user.
+  picks the dates — see [SKILL.md › Which tool first](../SKILL.md#which-tool-first), rule 3; follow the calendar's `next` exactly as [SKILL.md › Which tool first](../SKILL.md#which-tool-first) (**Follow `next`**) says.
 
 Route search:
 
@@ -241,8 +241,7 @@ Cabin intent applies only to this live `search` mode:
 Date flexibility: this call prices ONE exact date pair. "Give or take a day", open windows and date
 ranges go to `flight_calendar` first; when the user also gave a filter that only this tool has, the
 calendar picks the dates and this call answers — the sequence is
-[SKILL.md › Which tool first](../SKILL.md#which-tool-first), rule 3; the calendar's `next` carries
-`price_check` entries for the cheapest cached itineraries and, on an empty answer, complete `search` entries for concrete dates. For an **empty** calendar answer (`status: "empty"`), read `next.reason` first. With `beyond_booking_horizon`, run nothing live and apply the **Booking horizon** rule in [SKILL.md › Which tool first](../SKILL.md#which-tool-first). With `no_cached_fares_in_window`, run `flight_search` on the entries of `next.args` in the order listed — all of them (at most three) when this is the only cached answer, otherwise only as many as the shared live-search budget has left, naming the suggested dates not searched, each with the user's live-only filters and real party (`passengers`), and answer with the cheapest result that meets the filters, naming the dates searched; if every suggestion is empty, say so and name the dates; if `next.args` is empty, the window is in the past — say so. For a **non-empty** calendar answer, call `flight_search` with `{ price_check: <the entry's price_check>, passengers: <real party> }` only, using the chosen `next.args` entry; its `departure_date`, `return_date` and `total_amount` are context, not arguments, and no `search` is sent with `price_check`; when the user asked for a live-only filter, rule 3 still decides the candidates and the filters. If `price_check` answers "Offer not found", or its price-check status is `offer_unavailable` ("the selected offer is no longer available"),, run `flight_search` with `search` on that entry's `departure_date` / `return_date`, the same route, and the user's filters and real party (`passengers`) — do not report the offer as unavailable to the user.
+[SKILL.md › Which tool first](../SKILL.md#which-tool-first), rule 3; follow the calendar's `next` exactly as [SKILL.md › Which tool first](../SKILL.md#which-tool-first) (**Follow `next`**) says.
 
 Use cached discovery to narrow to at most three live `flight_search` confirmations per request, following the live-search budget and its explicit-date and single-retry exceptions in [SKILL.md › Which tool first](../SKILL.md#which-tool-first).
 
@@ -250,8 +249,11 @@ Use cached discovery to narrow to at most three live `flight_search` confirmatio
 
 Example: `{ "price_check": { "offer_token": "token_from_discovery" } }`
 
-`price_check` may return status `"flight_unavailable"` with alternatives if the flight is no longer
-available — ask the user to choose. Do NOT proceed to booking on `"flight_unavailable"`.
+`price_check` may return status `"offer_unavailable"` when the selected offer no longer matches,
+including its cabin; the same flight may still have other fares. Show any returned alternatives and
+ask the user to choose. Do NOT book the original offer on `"offer_unavailable"`. A `price_check`
+taken from a cached answer's `next` is the exception: run `flight_search` with `search` on that
+entry's dates, as the non-empty calendar answer paragraph above says, without asking the user first.
 
 ### Response
 
