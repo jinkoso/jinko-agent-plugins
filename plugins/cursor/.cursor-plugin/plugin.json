@@ -1,7 +1,7 @@
 {
   "name": "jinko",
   "description": "Search flights, hotels and car rentals, book trips, and manage bookings with the Jinko Travel API. Connects to the Jinko MCP server for live pricing, trip management, cancellation and payment.",
-  "version": "3.5.0",
+  "version": "3.6.0",
   "author": {
     "name": "Jinko"
   },
@@ -16,6 +16,7 @@
     "booking",
     "mcp"
   ],
+  "logo": "assets/logo.svg",
   "variables": {
     "type": "object",
     "properties": {

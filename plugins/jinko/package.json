@@ -1,6 +1,6 @@
 {
   "name": "@gojinko/plugin",
-  "version": "3.5.0",
+  "version": "3.6.0",
   "description": "Jinko Travel plugin for Claude Code and OpenAI Codex — flight, hotel and car-rental search, booking, and trip management via MCP",
   "license": "MIT",
   "author": "Jinko <dev@gojinko.com>",
