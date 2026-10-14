@@ -1,0 +1,55 @@
+<svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 8C0 3.58172 3.58172 0 8 0H64C68.4183 0 72 3.58172 72 8V64C72 68.4183 68.4183 72 64 72H8C3.58172 72 0 68.4183 0 64V8Z" fill="black"/>
+<g filter="url(#filter0_n_758_5814)">
+<path d="M10.125 35.5432C10.125 21.3948 21.5945 9.92529 35.7429 9.92529H36.5193C50.6677 9.92529 62.1372 21.3948 62.1372 35.5432V35.5432C62.1372 49.6916 50.6677 61.1612 36.5193 61.1612H35.743C21.5946 61.1612 10.125 49.6916 10.125 35.5432V35.5432Z" fill="url(#paint0_linear_758_5814)"/>
+</g>
+<g filter="url(#filter1_n_758_5814)">
+<mask id="path-3-inside-1_758_5814" fill="white">
+<path d="M36.5191 60.036V61.161H35.7429V60.036H36.5191ZM61.012 35.5432C61.012 22.0161 50.0462 11.0503 36.5191 11.0503H35.7429C22.2159 11.0503 11.25 22.0161 11.25 35.5432C11.25 49.0702 22.2159 60.036 35.7429 60.036V61.161C21.5945 61.161 10.125 49.6915 10.125 35.5432C10.125 21.3948 21.5945 9.92531 35.7429 9.92529H36.5191C50.6675 9.92529 62.137 21.3948 62.137 35.5432C62.137 49.6915 50.6675 61.161 36.5191 61.161V60.036C50.0462 60.036 61.012 49.0702 61.012 35.5432Z"/>
+</mask>
+<path d="M35.7429 61.161L35.7429 63.161H35.7429V61.161ZM61.012 35.5432H63.012V35.5432L61.012 35.5432ZM35.7429 11.0503V9.05029H35.7429L35.7429 11.0503ZM11.25 35.5432L9.25 35.5432V35.5432H11.25ZM10.125 35.5432L8.125 35.5432V35.5432H10.125ZM35.7429 9.92529V7.92529H35.7429L35.7429 9.92529ZM62.137 35.5432H64.137V35.5432L62.137 35.5432ZM36.5191 60.036H34.5191V61.161H36.5191H38.5191V60.036H36.5191ZM36.5191 61.161V59.161H35.7429V61.161V63.161H36.5191V61.161ZM35.7429 61.161H37.7429V60.036H35.7429H33.7429V61.161H35.7429ZM35.7429 60.036V62.036H36.5191V60.036V58.036H35.7429V60.036ZM61.012 35.5432L63.012 35.5432C63.012 20.9115 51.1507 9.05029 36.5191 9.05029V11.0503V13.0503C48.9416 13.0503 59.012 23.1207 59.012 35.5432L61.012 35.5432ZM36.5191 11.0503V9.05029H35.7429V11.0503V13.0503H36.5191V11.0503ZM35.7429 11.0503L35.7429 9.05029C21.1113 9.0503 9.25002 20.9116 9.25 35.5432L11.25 35.5432L13.25 35.5432C13.25 23.1207 23.3204 13.0503 35.7429 13.0503L35.7429 11.0503ZM11.25 35.5432H9.25C9.25 50.1748 21.1113 62.036 35.7429 62.036L35.7429 60.036L35.7429 58.036C23.3204 58.036 13.25 47.9656 13.25 35.5432H11.25ZM35.7429 60.036H33.7429V61.161H35.7429H37.7429V60.036H35.7429ZM35.7429 61.161L35.7429 59.161C22.6991 59.161 12.125 48.5869 12.125 35.5432H10.125H8.125C8.125 50.7961 20.49 63.161 35.7429 63.161L35.7429 61.161ZM10.125 35.5432L12.125 35.5432C12.125 22.4994 22.6991 11.9253 35.7429 11.9253L35.7429 9.92529L35.7429 7.92529C20.49 7.92531 8.12502 20.2902 8.125 35.5432L10.125 35.5432ZM35.7429 9.92529V11.9253H36.5191V9.92529V7.92529H35.7429V9.92529ZM36.5191 9.92529V11.9253C49.5629 11.9253 60.137 22.4994 60.137 35.5432L62.137 35.5432L64.137 35.5432C64.137 20.2902 51.7721 7.92529 36.5191 7.92529V9.92529ZM62.137 35.5432H60.137C60.137 48.5869 49.5629 59.161 36.5191 59.161V61.161V63.161C51.7721 63.161 64.137 50.7961 64.137 35.5432H62.137ZM36.5191 61.161H38.5191V60.036H36.5191H34.5191V61.161H36.5191ZM36.5191 60.036V62.036C51.1507 62.036 63.012 50.1748 63.012 35.5432H61.012H59.012C59.012 47.9656 48.9416 58.036 36.5191 58.036V60.036Z" fill="url(#paint1_linear_758_5814)" mask="url(#path-3-inside-1_758_5814)"/>
+</g>
+<defs>
+<filter id="filter0_n_758_5814" x="10.125" y="9.92529" width="52.0122" height="51.2358" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feTurbulence type="fractalNoise" baseFrequency="3.4921875 3.4921875" stitchTiles="stitch" numOctaves="3" result="noise" seed="4315" />
+<feColorMatrix in="noise" type="luminanceToAlpha" result="alphaNoise" />
+<feComponentTransfer in="alphaNoise" result="coloredNoise1">
+<feFuncA type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "/>
+</feComponentTransfer>
+<feComposite operator="in" in2="shape" in="coloredNoise1" result="noise1Clipped" />
+<feFlood flood-color="rgba(255, 255, 255, 0.1)" result="color1Flood" />
+<feComposite operator="in" in2="noise1Clipped" in="color1Flood" result="color1" />
+<feMerge result="effect1_noise_758_5814">
+<feMergeNode in="shape" />
+<feMergeNode in="color1" />
+</feMerge>
+</filter>
+<filter id="filter1_n_758_5814" x="10.125" y="9.92529" width="52.0122" height="51.2358" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feTurbulence type="fractalNoise" baseFrequency="3.4921875 3.4921875" stitchTiles="stitch" numOctaves="3" result="noise" seed="4315" />
+<feColorMatrix in="noise" type="luminanceToAlpha" result="alphaNoise" />
+<feComponentTransfer in="alphaNoise" result="coloredNoise1">
+<feFuncA type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "/>
+</feComponentTransfer>
+<feComposite operator="in" in2="shape" in="coloredNoise1" result="noise1Clipped" />
+<feFlood flood-color="rgba(255, 255, 255, 0.1)" result="color1Flood" />
+<feComposite operator="in" in2="noise1Clipped" in="color1Flood" result="color1" />
+<feMerge result="effect1_noise_758_5814">
+<feMergeNode in="shape" />
+<feMergeNode in="color1" />
+</feMerge>
+</filter>
+<linearGradient id="paint0_linear_758_5814" x1="36.2007" y1="10.1258" x2="36.2007" y2="118.126" gradientUnits="userSpaceOnUse">
+<stop offset="0.1" stop-color="#FFF7E8"/>
+<stop offset="0.35" stop-color="#FFA4A2"/>
+<stop offset="0.6" stop-color="#FF6363"/>
+</linearGradient>
+<linearGradient id="paint1_linear_758_5814" x1="36.131" y1="9.92529" x2="36.131" y2="61.161" gradientUnits="userSpaceOnUse">
+<stop stop-color="white"/>
+<stop offset="1" stop-color="#FFDAC7"/>
+</linearGradient>
+</defs>
+</svg>
