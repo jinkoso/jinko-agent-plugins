@@ -104,9 +104,9 @@ Europe.
 
 ## Codes on the discovery tools
 
-- `find_destination` wants AIRPORT codes, not city codes, and wants every airport that serves the
-  origin — `["CDG", "ORY"]` for Paris, not `["PAR"]`. Resolve the city rather than recalling its
-  airports: `?place=PAR` returns exactly that list.
+- `find_destination` takes airport or city codes. A multi-airport city code (`PAR`, `NYC`, `LON`)
+  covers every airport of that city; to list airports instead, resolve the city rather than recalling
+  them: `?place=PAR` returns exactly that list.
 - `flight_calendar` takes a city code or an airport code and reads it by the platform's one rule
   for an untyped code: a code that names a multi-airport city is searched as the city; every other
   code is searched as the airport. A city code already covers every airport in the metropolitan

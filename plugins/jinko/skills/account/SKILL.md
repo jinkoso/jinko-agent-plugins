@@ -1,6 +1,6 @@
 ---
 name: account
-description: Set up and manage your Jinko developer account — registration, API keys, usage quotas. Use when the user asks about their API key, usage limits, or account setup.
+description: Set up and manage your Jinko developer account — registration, API keys, usage. Use when the user asks about their API key, usage, or account setup.
 ---
 
 # Developer Account
@@ -22,14 +22,8 @@ Account management is handled through the web dashboard — there are no MCP too
 
 - **View and create API keys** — each key has a `jnk_` prefix
 - **Revoke API keys** — irreversible, confirm before proceeding
-- **Check usage** — see requests used, remaining quota, and reset date
+- **Check usage**
 - **Manage your profile** — update name, email, organization
-
-## Rate limits
-
-- Default: **1,000 requests / 30 days** per API key
-- Usage resets on a rolling 30-day window
-- If you need a higher limit, contact support via the dashboard
 
 ## CLI authentication
 

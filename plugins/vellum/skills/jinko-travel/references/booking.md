@@ -1,7 +1,7 @@
 # Booking — trip, checkout, payment, inspection, servicing
 
 The step order is in [SKILL.md › End-to-end booking flow](../SKILL.md#end-to-end-booking-flow). This
-file carries the detail of each tool. All five tools below cost 1 credit per call.
+file carries the detail of each tool.
 
 ## trip
 
@@ -16,8 +16,9 @@ Operations:
   new trip.
   - MULTI-ROOM HOTEL: to book several rooms of the SAME hotel and stay as ONE booking with ONE
     reference, make ONE `add_item` call with `rooms: [{trip_item_token: "htl_..."}, ...]` (2–8
-    entries, one `htl_*` rate token per room, mutually exclusive with `trip_item_token`;
-    HotelBeds-inventory tenants only) — do NOT add the same hotel twice as separate items.
+    entries, one `htl_*` rate token per room, mutually exclusive with `trip_item_token`; not every
+    hotel rate can be booked this way, and one that cannot is refused when it is added) — do NOT add
+    the same hotel twice as separate items.
 - `remove_item`: remove an existing item from the trip by `item_id` (from the trip response
   `items[].item_id`). Requires an existing `trip_id`. Can be combined with `add_item` in a single call
   to swap an item — remove runs first, then add.
@@ -28,10 +29,11 @@ Operations:
 Traveler data — IMPORTANT: NEVER invent or fabricate traveler data. Before calling
 `upsert_travelers`, you MUST ask the user for the required fields:
 
-- Always: `first_name`, `last_name`, `passenger_type`
-- Flights only: `date_of_birth` (YYYY-MM-DD), `gender` (male/female) — required when the trip contains
+- Always: `first_name`, `last_name`, `passenger_type` (`ADULT` 12+, `CHILD` 2–11, `INFANT` under 2)
+- Flights only: `date_of_birth` (YYYY-MM-DD), `gender` (`MALE` / `FEMALE`, upper case) — required when the trip contains
   a flight, optional for hotel-only trips
-- Contact: `email`, `phone` (with country code)
+- Contact: `email`, `phone` in international format: a leading `+` and the country code (`+12025550147`).
+  A number without the leading `+` is rejected with `INVALID_PHONE_NUMBER`.
 
 If a required field is missing, ASK the user. Do not use placeholder or default values.
 
@@ -87,8 +89,10 @@ Prepare the trip before payment:
 
 Usage: `checkout({ trip_id })`
 
-The BFF schedules a quote, polls until it completes, schedules fulfillment, and returns a Stripe
-checkout URL — all in one synchronous call.
+Jinko prices the trip (schedules a quote and polls until it completes) and returns `checkout_url`,
+a Jinko page where the user pays — all in one synchronous call. Checkout books nothing and charges
+nothing: the fulfillment and `booking_ref` appear when the user presses Pay or you call
+`submit_agent_payment`.
 
 - Human path: open the returned `checkout_url` in a browser to pay. Stripe webhooks finalize the
   booking after payment succeeds; no client-side confirm step is required.
@@ -103,17 +107,28 @@ IMPORTANT: never fabricate traveler data. Always make sure `trip(add_item)` and
 Submit a Shared Payment Token (SPT) to schedule the agent fulfillment and authorize the booking
 server-side in one call. This is the agent-pay alternative to sending the user to a checkout page.
 
-Prerequisite: call `checkout` first to get `agent_spt_params`, then mint an SPT scoped to those
-params.
+Prerequisite: call `checkout` first (and again if travelers were edited since, or the quote expired — a
+stale quote is refused with 410 `QUOTE_EXPIRED` and nothing is charged) to get `agent_spt_params`, then
+mint an SPT scoped to those params.
 
 Usage: `submit_agent_payment({ trip_id, shared_payment_token })`
 
 On success the booking proceeds to fulfillment (`{ status, payment_verified: true, booking_ref }`).
 `booking_ref` (JNK-XXXXXX) is the Jinko booking reference — keep it (see the section on references
 below). It is the direct way an agent paying by SPT obtains that reference (no confirmation email);
-`get_trip(trip_id)` returns the same `booking_ref` if this reply is lost. If the issuer requires
-customer action (3DS) or declines, the response carries a `checkout_url` instead of `booking_ref` —
-open it in a browser to complete payment manually.
+`get_trip(trip_id)` returns the same `booking_ref` if this reply is lost.
+
+If the issuer requires customer authentication (3DS), the response carries
+`payment_status: "requires_authentication"`, an `authentication_url` and no `checkout_url`. Read your
+issued token's `next_action.use_stripe_sdk.value` with your Stripe secret key and give the traveller
+`authentication_url` + `"#hv="` + that value (unchanged) to complete the bank challenge before
+`quote_expires_at` — or run `stripe.handleNextAction({ hashedValue })` on your own page. Then poll
+`get_trip` until `payment_attempt.payment_status` is none of `requires_authentication`, `cancelling`
+or `pending`: `authorized` or `captured` means the payment went through (watch `fulfillment.status`);
+`failed`, `declined` or `cancelled` means it did not — submit again with a new token before the
+deadline; `expired` means the quote expired with it — call `checkout` again, then mint and submit a
+new token. If the card is declined, the response carries a `checkout_url` instead of `booking_ref` —
+open it in a browser to pay with another method.
 
 ## get_trip
 
@@ -141,9 +156,9 @@ flights, confirmation number for hotels).
   characters). It is found in the confirmation email sent after booking and returned as `booking_ref`
   by `get_trip` and `submit_agent_payment`. It is what `get_booking`, `hotel_cancel` and
   `flight_refund` take as `booking_ref`.
-- In `get_trip`, `booking_ref` is present as soon as a fulfillment cart exists (fulfillment
-  scheduled), which can be before payment completes — do not treat its presence as paid; check
-  `fulfillment.status`. The value never changes afterwards.
+- In `get_trip`, `booking_ref` appears once payment has started (the traveller pressed Pay at
+  `checkout_url`, or you called `submit_agent_payment`), possibly before payment completes — do not
+  treat its presence as paid; check `fulfillment.status`. After `checkout` alone there is none. The value never changes afterwards.
 - `bookings[].booking_reference` is the SUPPLIER confirmation (airline PNR / hotel confirmation
   number). Do not pass it to `get_booking` — supplier references are rejected.
 
@@ -156,8 +171,10 @@ offers (`car_search`) go through the same `trip(add_item)` → `upsert_travelers
 
 ## After booking: refunds, exchanges, cancellations
 
-No login required — authenticate with `booking_ref` + `last_name`. Before cancelling, you can call
-`get_booking` to inspect the booking and confirm what you are about to cancel.
+No login required — guests authenticate with `booking_ref` + `last_name`; an owning credential may omit
+`last_name`. Always start with `get_booking`: choose the intended `items[]` entry, read its servicing
+eligibility, and send the same `booking_ref` + `item_id` on every action, including commit and status.
+A 409 with `items[]` asks you to select an `item_id` and retry.
 
 The shared contract for every servicing tool:
 
@@ -165,7 +182,10 @@ The shared contract for every servicing tool:
    nothing and cancels / changes nothing. It returns the figures and the handle that a later commit
    requires.
 2. Show the customer the amount and get their explicit confirmation — especially when money moves.
-3. `action: "commit"` with the handle from the preview. Never commit without a preview.
+3. `action: "commit"` with the handle from the preview. Never commit without a preview. The handle is
+   `quote` (`svq_…`) plus `acknowledged` — the preview's `refund` object copied field for field — for
+   `flight_refund` and `hotel_cancel`; `cancellation_id` for `car_cancel`; `offer_id` plus the
+   `session_reference` from `price` for `flight_exchange`.
 4. `action: "status"` to read the outcome / poll progress.
 
 `fee_known: false` means the fee or penalty is UNKNOWN — tell the customer we will confirm the amount.
@@ -194,23 +214,24 @@ calling):
   Refunds may be split between the original card and a carrier voucher; positive `delta_amount` = the
   user owes more, negative = refund. The carrier may reject either — surface `rejected_reason`.
 - `car_cancel` — cancel a rental and refund less the fee: preview → (user confirms) → commit →
-  status. To change a rental instead, use `car_exchange`.
-- `car_exchange` — change a rental in place (dates, vehicle, rate extras): preview → (user confirms)
-  → commit → status. This is the tool for "change my dates", "modify", "amend", "upgrade" and for
-  changing extras (child seat, GPS). There is no `"price"` action — a preview is already priced.
+  status.
+- Changing a rental is not available: no tool moves its dates, swaps the vehicle, upgrades it or
+  changes rate extras (child seat, GPS). If the customer wants a different rental, the path is
+  `car_cancel` (show the fee first) and then a new `car_search` + booking. Do not promise a
+  modification.
 
 ## Ground and car bookings (summary)
 
 Search and booking detail for these tools stays in their descriptions and in the server instructions;
 this is the shape of the flow only.
 
-- Ground (Distribusion; only when `find_ground` is in your tool list, never offer it otherwise):
-  `find_ground(departure_city + arrival_city + departure_date)` — 5-character Distribusion CITY CODES
-  ("FRPAR", "GBLON"), never names and never IATA → `trip(add_item)` with the connection's
-  `trip_item_token` passed VERBATIM (optionally `fare_class`; never `fares[].offer_id`) →
+- Ground (bus/coach, rail, ferry; only when `find_ground` is in your tool list, never offer it
+  otherwise): `find_ground(departure_city + arrival_city + departure_date)` — 5-character
+  ground-transport CITY CODES ("FRPAR", "GBLON"), never names and never IATA → `trip(add_item)` with
+  the connection's `trip_item_token` passed VERBATIM (optionally `fare_class`; never `fares[].offer_id`) →
   `trip(upsert_travelers)` with travellers AND contact (email and phone required; many carriers also
   require title, street_and_number, city, zip_code, country_code) → `checkout(trip_id)`, same as flights.
-- Car (Auto Europe): `car_search(pick_up + drop_off_date_time + driver_age + residence_country)` →
+- Car: `car_search(pick_up + drop_off_date_time + driver_age + residence_country)` →
   `trip(add_item)` with the offer's `car_` `offer_id` as `trip_item_token` (cart-add re-prices at the
   supplier, so an expired offer surfaces here) → `trip(upsert_travelers)` with travellers AND contact,
   including `contact.title` (an honorific: "mr", "ms", "dr", …; without it checkout refuses the cart

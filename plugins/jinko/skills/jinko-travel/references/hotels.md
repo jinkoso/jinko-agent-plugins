@@ -8,7 +8,7 @@ hotel after the user picks one to look at more closely → `trip(add_item)` with
 
 ## hotel_search
 
-Search live hotel inventory and rates. 10 credits per call.
+Search live hotel inventory and rates.
 
 ### Required
 
@@ -31,15 +31,15 @@ MODE A (rate lookup — the user named a specific hotel):
   `HOTEL_NAME_LOW_CONFIDENCE` if no candidate scores ≥ 0.7; see the error handling below.
 - `{ hotel_ids }`: re-shop a known set (from a prior search result).
 - In Mode A: the property filters (`min_rating`, the star range, `min_reviews`, `hotel_type_ids`,
-  `chain_ids`, `facility_ids`) and `max_results` are ignored — the user named the property — but
-  `filters.max_budget_per_night` still applies. The response includes `nearby_alternatives` — up to
+  `chain_ids`, `facility_ids`) cannot be combined with `hotel_name` / `hotel_ids` — the request is
+  rejected (the user named the property). `max_results` does not limit Mode A: every named hotel that
+  has rates is returned. `filters.max_budget_per_night` still applies. The response includes `nearby_alternatives` — up to
   40 hotels within ~3 km of the matched property, in the same response shape so the user can compare.
 
 MODE B (hotel search — the user is exploring a destination):
 
-- `{ query }`: unambiguous cities or well-known POIs only ("Paris", "Times Square"). The provider AI
-  search returns 0 for islands ("Menorca", "Santorini", "Mykonos"), regions ("Tuscany", "Provence",
-  "Bavaria"), countries, archipelagos. Do NOT use `{ query }` for those.
+- `{ query }`: a natural-language destination — a city, POI, island or region ("Paris", "Times
+  Square", "Menorca", "Tuscany"). The platform parses it once into city + country or coordinates.
 - `{ city_name + country_code }`: when the user named a city, even if ambiguous. Best when the
   destination has a primary city ("Mahón, ES" for Menorca; "Florence, IT" for Tuscany). A misspelt
   city with no exact catalog match returns 422 `DESTINATION_LOW_CONFIDENCE` with candidates — see
@@ -51,13 +51,11 @@ MODE B (hotel search — the user is exploring a destination):
   group per spelling and folds case, accents and hyphens but **not** translations, so the wrong form
   usually resolves to a near-empty duplicate group rather than failing — see "a small
   `catalog_hotel_count` is a resolution failure" below.
-- `{ latitude + longitude + radius_km }`: when the destination is an area, island or region with no
-  obvious primary city — **and as the fallback whenever a name-based search comes back empty**, for any
-  place including an ordinary city. `radius_km` up to 50.
+- `{ latitude + longitude + radius_km }`: when exact coordinates and the desired area radius are
+  already known — **and as the fallback whenever a name-based search comes back empty**, for any place
+  including an ordinary city. `radius_km` up to 50 (default 20).
 - A Place ID is NOT a destination: the server answers 400 `place_id is not supported`. Use one of
   the three shapes above.
-- If the user names something non-city (an island, region, archipelago, neighborhood), DO NOT pass it
-  as `{ query }` — pick `{ city_name + country_code }` or `{ latitude + longitude + radius_km }`.
 
 ### Dates — form the stay before you call
 
@@ -96,7 +94,8 @@ searched with.
 - **Stated** — send it as stated: `adults` for one or two adults in one room, `occupancies` (one entry
   per room) for a larger party or one with children. A child needs an age (`children_ages`): when the
   user mentions children without ages, ask for the ages — one question.
-- **Not stated** — do not ask, and do not leave it out (the search is refused without it). Send two
+- **Not stated** — do not ask. Leaving the party out also searches 2 adults per room (marked
+  `server_default` in `search_criteria.occupancy.source`). Send two
   adults per room — `"adults": 2` for one room, or one `{ "adults": 2 }` entry per room when the user
   gave a room count — and say so in the answer: "Priced for 2 adults in 1 room; tell me who is
   travelling and I will re-price." A traveller who is plainly alone ("solo trip", "just me") is
@@ -327,16 +326,15 @@ send its filter, or tell the user it was not applied.
   you present.
 - **What no filter covers** is checked on the candidates: breakfast or board and free cancellation
   (each rate line shows them), room features such as a sea view, a balcony, a kitchen or a bed type
-  (room names), a facility that is not on the list. `hotel_details` (1 credit) returns a hotel's
+  (room names), a facility that is not on the list. `hotel_details` returns a hotel's
   `facilities[]` — call it for the hotels you are about to recommend, at most five, never for the
   whole list. Say which constraints you verified and which you could not.
 - **A `Warning:` line that names a filter entry** means that entry was NOT applied. Treat the
   constraint as unsent: verify it on the candidates, or tell the user.
-- **Refused filters.** An error saying the filters "are not supported for HotelBeds searches" means
-  this inventory cannot filter on `min_rating`, `min_reviews`, `facility_ids`, `chain_ids` or
-  `hotel_type_ids`. Search again ONCE without those five (the star range and
-  `max_budget_per_night` still work), apply what the returned hotels let you check, and say which
-  constraints were not applied.
+- **Refused filters.** An error saying the hotel source "cannot apply min_rating, min_reviews,
+  hotel_type_ids, chain_ids or facility_ids" means this inventory cannot filter on those five.
+  Search again ONCE without them (the star range and `max_budget_per_night` still work), apply what
+  the returned hotels let you check, and say which constraints were not applied.
 - **An empty result with a filter set** can be the filter's doing whatever `empty_reason` says: search
   once more without the facility, type or rating filter before telling the user anything about
   availability.
@@ -402,15 +400,15 @@ rate seen and the total it would make (see "Error handling — an empty Mode B r
 ### Examples
 
 1. Free-text city search:
-   `{ "destination": { "query": "Paris" }, "checkin": "2026-07-15", "checkout": "2026-07-18", "adults": 2 }`
+   `{ "destination": { "query": "Paris" }, "checkin": "<checkin>", "checkout": "<checkout>", "adults": 2 }`
 2. Two-room family with kids:
-   `{ "destination": { "city_name": "Barcelona", "country_code": "es" }, "checkin": "2026-08-01", "checkout": "2026-08-05", "occupancies": [{ "adults": 2 }, { "adults": 1, "children_ages": [5, 7] }] }`
-3. Island / region (use lat-lng + radius, NOT query):
-   `{ "destination": { "latitude": 39.9496, "longitude": 4.1102, "radius_km": 30 }, "checkin": "2026-08-31", "checkout": "2026-09-09", "adults": 1 }`
+   `{ "destination": { "city_name": "Barcelona", "country_code": "es" }, "checkin": "<checkin>", "checkout": "<checkout>", "occupancies": [{ "adults": 2 }, { "adults": 1, "children_ages": [5, 7] }] }`
+3. Island / region with known coordinates:
+   `{ "destination": { "latitude": 39.9496, "longitude": 4.1102, "radius_km": 30 }, "checkin": "<checkin>", "checkout": "<checkout>", "adults": 1 }`
 4. Geo-radius search around a POI:
-   `{ "destination": { "latitude": 41.4036, "longitude": 2.1744, "radius_km": 3 }, "checkin": "2026-09-10", "checkout": "2026-09-12", "adults": 2 }`
+   `{ "destination": { "latitude": 41.4036, "longitude": 2.1744, "radius_km": 3 }, "checkin": "<checkin>", "checkout": "<checkout>", "adults": 2 }`
 5. Mode A — the user named a specific hotel:
-   `{ "destination": { "hotel_name": "Hotel Calimala", "country_code": "it", "city_name": "Florence" }, "checkin": "2026-07-15", "checkout": "2026-07-18", "adults": 2, "currency": "EUR" }`
+   `{ "destination": { "hotel_name": "Hotel Calimala", "country_code": "it", "city_name": "Florence" }, "checkin": "<checkin>", "checkout": "<checkout>", "adults": 2, "currency": "EUR" }`
 
 ### Response
 
@@ -444,13 +442,12 @@ Prices are for the whole stay, in the currency sent — per room when two or mor
 
 ## hotel_details
 
-Fetch rich metadata (gallery, facilities, policies, per-room metadata) for a single hotel. 1 credit
-per call.
+Fetch rich metadata (gallery, facilities, policies, per-room metadata) for a single hotel.
 
 Use this AFTER `hotel_search` returns a list of hotels and the user wants a closer look at one. Pass
-the `hotel_id` from a `hotel_search` result.
+`hotel_ref` when the result provides it; native `hotel_id` is the legacy fallback.
 
-- Required: `hotel_id` (string, from a `hotel_search` offer).
+- Required: exactly one of `hotel_ref` (preferred) or `hotel_id` (legacy) from a `hotel_search` result.
 - Optional: `checkin`, `checkout` (YYYY-MM-DD) — accepted for cache-key alignment; currently ignored.
 
 Response:

@@ -1,6 +1,6 @@
 {
   "name": "jinko-vellum-plugin",
-  "version": "3.1.5",
+  "version": "3.5.0",
   "displayName": "Jinko Travel",
   "description": "Flight and hotel search, booking, and servicing through Jinko's remote MCP server, authenticated with a Jinko API key from the Vellum credential vault.",
   "license": "MIT",

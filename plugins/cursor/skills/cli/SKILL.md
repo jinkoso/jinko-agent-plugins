@@ -52,8 +52,8 @@ Prod and sandbox keys are stored separately in `~/.jinko/config.yaml`. Precedenc
 | `trip` | Create / update a trip: add items, remove items, set travelers + contact (a car rental needs `contact.title`, the honorific) |
 | `select-ancillaries` | Add baggage / seats / meals to a trip item |
 | `checkout` | Finalize a trip → returns `checkout_url` (human pays in browser) + `agent_spt_params` (agent pays programmatically). `book` is a deprecated alias. |
-| `agent-pay submit` | Pay programmatically with a Shared Payment Token (`--trip-id` + `--token`); returns the Jinko `booking_ref` once authorized; 3DS step-up falls back to `checkout_url` |
-| `trip-status` | Full status: cart, quote, fulfillment, bookings, and the Jinko `booking_ref` once fulfillment has been scheduled — it can be present before payment completes, so read `fulfillment.status` for paid (the `--booking-ref` for `get-booking` / `hotel-cancel` / `car-cancel` / `refund`) |
+| `agent-pay submit` | Pay programmatically with a Shared Payment Token (`--trip-id` + `--token`); returns the Jinko `booking_ref` once authorized; on 3-D Secure it returns `payment_status: "requires_authentication"` and an `authentication_url` (no `checkout_url`); only a declined card falls back to `checkout_url` |
+| `trip-status` | Full status: cart, quote, fulfillment, bookings, and the Jinko `booking_ref` once payment starts (the Pay button or `agent-pay submit`; `checkout` alone books nothing) — it can be present before payment is authorized, so read `payment_attempt.payment_status` and `fulfillment.status` for paid (the `--booking-ref` for `get-booking` / `hotel-cancel` / `car-cancel` / `refund`) |
 | `get-booking` | Retrieve a booking by `JNK-*` ref + last name (guest access). Carries `calendar` — the `.ics` files for the booking's flights and stays; `--format json` carries their contents. |
 | `refund check / commit / status` | Voluntary refund flow |
 | `car-cancel preview / commit / status` | Car-rental cancellation: `preview` quotes the fee and mints the `cancellation_id` the commit is bound to; `commit` cancels (`--manual-ok` hands a `manual_required` quote to a Jinko agent, only with the customer's consent); `status` re-reads the latest attempt. No `car-exchange` exists — modifying a rental is not offered. |
@@ -96,7 +96,10 @@ jinko checkout --trip-id tr_ABC
 #     then pay programmatically (no browser):
 jinko agent-pay submit --trip-id tr_ABC --token spt_xxx
 # → { status: "processing", payment_verified: true, booking_ref: "JNK-XEVGW5" }
-#   On a 3DS step-up / decline, the response carries a checkout_url fallback (no booking_ref).
+#   On 3-D Secure: { payment_status: "requires_authentication", authentication_url: "…" } and no
+#   checkout_url. Send the traveller to authentication_url + "#hv=" + the token's
+#   next_action.use_stripe_sdk.value, then poll trip-status. Only a declined card
+#   returns a checkout_url fallback (no booking_ref).
 
 # 6. Poll status
 jinko trip-status --trip-id tr_ABC
