@@ -1,5 +1,20 @@
 {
-  "version": "3.6.0",
-  "source": "jinkoso/jinko-dev-tools@fa3a5bf0181fa09331ea7b0d99ee875b4f4562f4",
-  "jinko_skills": "163910b9cd31ac800ba349813518d75432b91bfd"
+  "version": "3.7.0",
+  "source": "jinkoso/jinko-dev-tools@d389795133518b90696d18d5ccd18bff5ec8f7de",
+  "jinko_skills": "83f2beb9ea860b162af8a3d071df1e96ba2035d9",
+  "grok": {
+    "entrypoint_source": "packages/plugin/hosts/grok/skills/jinko-travel/SKILL.md",
+    "shared_vendor_files": [
+      "references/places.md"
+    ],
+    "observed_mcp": {
+      "url": "https://grok.mcp.gojinko.com/",
+      "server_name": "jinko-travel",
+      "server_version": "1.45.0",
+      "protocol_version": "2025-06-18",
+      "observed_at": "2026-10-15",
+      "evidence": "skills/jinko-travel/live-production-car-tools.json",
+      "historical_snapshot": "tool-snapshot.json"
+    }
+  }
 }

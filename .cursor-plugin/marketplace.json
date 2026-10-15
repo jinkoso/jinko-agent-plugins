@@ -5,14 +5,19 @@
     "email": "dev@gojinko.com"
   },
   "metadata": {
-    "description": "Jinko travel plugin for Cursor",
-    "version": "3.6.0"
+    "description": "Jinko travel plugins for Cursor and Grok Bot",
+    "version": "3.7.0"
   },
   "plugins": [
     {
       "name": "jinko",
       "source": "./plugins/cursor",
       "description": "Search flights, hotels and car rentals, book trips, and manage bookings with the Jinko Travel API. Connects to the Jinko MCP server for live pricing, trip management, cancellation and payment."
+    },
+    {
+      "name": "jinko-grok",
+      "source": "./plugins/grok",
+      "description": "Search and book live flights, hotels, and enabled car rentals, manage trips, and service Jinko bookings in Grok Bot through the anonymous Jinko Grok MCP server."
     }
   ]
 }

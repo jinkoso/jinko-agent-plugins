@@ -1,0 +1,35 @@
+{
+  "observed_at": "2026-10-14",
+  "endpoint": "https://grok.mcp.gojinko.com/",
+  "server_info": {
+    "name": "jinko-travel",
+    "version": "1.44.1"
+  },
+  "protocol_version": "2025-06-18",
+  "tools": {
+    "find_destination": ["origins", "trip_type"],
+    "flight_calendar": ["origin", "destination", "trip_type"],
+    "find_dates": ["origin", "destination", "trip_type"],
+    "price_monitoring": ["origin", "destination", "departure_date"],
+    "flight_search": [],
+    "flight_price_advice": ["origin", "destination", "departure_date", "trip_type", "cabin_class", "current_price"],
+    "hotel_search": [],
+    "hotel_details": [],
+    "trip": [],
+    "checkout": ["trip_id"],
+    "submit_agent_payment": ["trip_id", "shared_payment_token"],
+    "get_trip": ["trip_id"],
+    "get_booking": ["booking_ref", "last_name"],
+    "flight_refund_preview": ["booking_ref", "last_name"],
+    "flight_refund_commit": ["booking_ref", "last_name", "quote"],
+    "flight_refund_status": ["booking_ref", "last_name", "operation"],
+    "flight_refund_check": ["booking_ref", "last_name"],
+    "flight_exchange_shop": ["booking_ref", "last_name", "segments_to_exchange"],
+    "flight_exchange_price": ["booking_ref", "last_name", "offer_id"],
+    "flight_exchange_commit": ["booking_ref", "last_name", "offer_id"],
+    "flight_exchange_status": ["booking_ref", "last_name"],
+    "hotel_cancel_preview": ["booking_ref", "last_name"],
+    "hotel_cancel_commit": ["booking_ref", "last_name", "quote", "acknowledged"],
+    "hotel_cancel_status": ["booking_ref", "last_name", "operation"]
+  }
+}

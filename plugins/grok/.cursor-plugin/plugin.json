@@ -1,0 +1,21 @@
+{
+  "name": "jinko-grok",
+  "description": "Search and book live flights, hotels, and enabled car rentals, manage trips, and service Jinko bookings in Grok Bot through the anonymous Jinko Grok MCP server.",
+  "version": "3.7.0",
+  "author": {
+    "name": "Jinko"
+  },
+  "homepage": "https://gojinko.com",
+  "repository": "https://github.com/jinkoso/jinko-agent-plugins",
+  "license": "MIT",
+  "keywords": [
+    "travel",
+    "flights",
+    "hotels",
+    "car-rentals",
+    "booking",
+    "grok",
+    "mcp"
+  ],
+  "logo": "assets/logo.svg"
+}
