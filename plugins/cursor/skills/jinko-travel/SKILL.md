@@ -11,11 +11,17 @@ metadata:
 # Jinko Travel (Builder MCP)
 
 Jinko Travel API — flight and hotel search, pricing and booking, plus car rental, exposed as MCP
-tools. Authenticate with an `Authorization: Bearer <token>` header (OAuth JWT or a `jnk_*` API key). Do NOT use an `X-API-Key` header.
+tools. On the default Builder connection, authenticate with an `Authorization: Bearer <token>`
+header (OAuth JWT or a `jnk_*` API key). Do NOT use an `X-API-Key` header.
 
 Tool descriptions remain the reference for parameters and response shapes. This skill carries the
 way-of-use: which tool first, how the steps chain, and the rules that always apply. Details per domain
-are in the four references linked at the end.
+are in the references linked at the end.
+
+When this skill is used with another connected Jinko MCP surface, use that connection's current
+`tools/list`, tool descriptions and input schemas as the capability contract. Do not infer car support
+from the number of tools or a deployment name. A connected anonymous surface already supplies its
+tenant; do not ask for Builder credentials or add an authorization header to its calls.
 
 ## Tool map
 
@@ -53,10 +59,10 @@ Ground transport (bus/coach, rail and ferry) — ONLY when these tools appear in
 - `ground_cancel` — cancel a ground booking: preview → commit → status.
 - `ground_exchange` — exchange a ground booking for a new date and/or stations: preview → commit → status.
 
-Car rental — optional tool group, not registered on every deployment:
+Car rental — available only when the current connection lists the relevant tools:
 
 - `car_search` — live car rental offers; each `offer_id` IS the trip item token (there is no car-specific booking tool).
-- `car_cancel` — cancel a rental and refund less the fee: preview → commit → status. Changing a rental (dates, vehicle, upgrade, extras) is not available: the options are keeping it as is, or `car_cancel` (fee shown first) and a new `car_search` + booking.
+- Cancellation is available through either aggregate `car_cancel` with `action: "preview" | "commit" | "status"`, or the complete split set `car_cancel_preview`, `car_cancel_commit`, and `car_cancel_status`. A partial split set is insufficient: do not promise cancellation. Changing a rental (dates, vehicle, upgrade, extras) is not available; keep it as is, or cancel after showing the fee and then run a new `car_search`.
 
 ## Which tool first
 
@@ -135,16 +141,16 @@ Hotels: exploring a destination → `hotel_search` Mode B; the user named a spec
 - Filters: send every stated constraint that has a filter (review score, stars, nightly budget, facility, property type, brand). Check the rest on the hotels you present, or say it was not applied.
 - A period to compare ("the cheapest night in March"): at most three `hotel_search` calls, one stay each — never one call per night.
 
-Cars: rent / hire a car between two date-times → `car_search`. Ground (only if `find_ground` is in your tool list): train, bus/coach or ferry between two places → `find_ground`.
+Cars: rent / hire a car between two date-times → `car_search`, when listed. Collect the real driver's age and country of residence before searching; read [references/cars.md](references/cars.md) for the exact place, date-time, results, booking and cancellation contracts. Ground (only if `find_ground` is in your tool list): train, bus/coach or ferry between two places → `find_ground`.
 
-Existing booking: inspect → `get_booking` (`booking_ref` + `last_name`) or `get_trip` (`trip_id`). Cancel a flight → `flight_refund`; change a flight → `flight_exchange`; cancel a hotel → `hotel_cancel`; ground (if listed) → `ground_cancel` / `ground_exchange`; end a rental → `car_cancel`; changing a rental is not available (see the tool map).
+Existing booking: inspect → `get_booking` (`booking_ref` + `last_name`) or `get_trip` (`trip_id`). Cancel a flight → `flight_refund`; change a flight → `flight_exchange`; cancel a hotel → `hotel_cancel`; ground (if listed) → `ground_cancel` / `ground_exchange`; end a rental → the available complete car-cancellation shape described above. There is no `car_exchange`.
 
 ## End-to-end booking flow
 
 Each step depends on the previous one — do not skip steps.
 
-1. Get flights, either via discovery (`find_destination` / `flight_calendar` → `offer_token` → `flight_search` with `price_check`) or via direct search (`flight_search` with `search`, when the user has route + exact dates). For hotels: `hotel_search` (then `hotel_details` if the user wants a closer look).
-2. `flight_search` returns flights with fare options and a `trip_item_token` per fare; `hotel_search` returns rates with an `htl_*` `offer_id`. If `flight_search` status is `"offer_unavailable"`: the selected offer did not match; show any returned alternatives and let the user choose — except for a `price_check` taken from a cached answer's `next`, which the Follow-`next` rule re-searches on the same dates.
+1. Get flights, either via discovery (`find_destination` / `flight_calendar` → `offer_token` → `flight_search` with `price_check`) or via direct search (`flight_search` with `search`, when the user has route + exact dates). For hotels: `hotel_search` (then `hotel_details` if the user wants a closer look). For cars: `car_search` with the actual rental places, local date-times, driver age and residence country.
+2. `flight_search` returns flights with fare options and a `trip_item_token` per fare; `hotel_search` returns rates with an `htl_*` `offer_id`; `car_search` returns a `car_*` `offer_id` that is the trip item token. If `flight_search` status is `"offer_unavailable"`: the selected offer did not match; show any returned alternatives and let the user choose — except for a `price_check` taken from a cached answer's `next`, which the Follow-`next` rule re-searches on the same dates.
 3. `trip` with `add_item` and the token of the fare / rate the user chose → creates the trip, returns `trip_id`. Flights and hotels (and cars) can be added to the same trip: one cart, one Stripe checkout.
 4. `trip` with `upsert_travelers` (`trip_id`) → set real passenger info and contact (MUST be provided by the user).
 5. Optional flight ancillaries: `checkout` to quote/price first (do not pay yet) → `get_trip` for `available_ancillaries` and the seat map → `trip(select_ancillaries)`. Show available seats and free/paid prices per passenger; select each numbered seat with `seat_number` + `pax_ref_id`. See [seat selection](references/booking.md#seat-selection) before choosing.
@@ -167,9 +173,10 @@ Full detail for each step: [references/booking.md](references/booking.md).
 - Refunds, exchanges and cancellations: always preview (or shop and price) before committing, show the customer the amount, and get explicit user confirmation. `fee_known: false` means the fee is UNKNOWN — never present it as free.
 - Do not retry in loops on errors. `status: "stale"` from `price_monitoring` is a correct answer, not a reason to loop.
 - If a search fails, surface the error — never retry with a changed passenger list (e.g. dropping an infant); that silently changes the user's request.
+- Never replace an unavailable rental with a different car offer unless the user selects that offer. Re-search and present the available choices.
 - Sessions expire after inactivity. If you receive a 404, re-initialize.
 - Money: search, calendar, monitoring, trip, checkout and `get_trip` results carry a `display` string beside each price (`display` inside a money object, `<field>_display` beside a bare number, e.g. `min_price_display`, `price_display`, `total_amount_display`): the ISO currency code and the amount at the currency's decimals, e.g. `"EUR 484.40"` (`flight_search` prints its prices in the same form). Quote `display` verbatim; never compute a price from `value`, `amount` or `decimal_places`. Refund, exchange and cancellation tools state their own money rules.
-- Authenticate with `Authorization: Bearer <token>`; not `X-API-Key`.
+- On a Builder connection, authenticate with `Authorization: Bearer <token>`; not `X-API-Key`.
 
 <!-- BEGIN cursor overlay — generated from hosts/cursor/overlay.md -->
 
@@ -188,4 +195,5 @@ If no Jinko tool is listed, the key is missing or rejected: tell the user to con
 - [references/places.md](references/places.md) — turning what the traveller said into IATA codes: when to resolve rather than recall, ambiguity, country-level transit exclusions and the 9-airport provider cap, a radius around a city.
 - [references/hotels.md](references/hotels.md) — `hotel_search` (two modes, forming the dates and the party, the three-stay budget for a period, filters, the 422 low-confidence recovery, one budget across flights and hotel, examples) and `hotel_details`.
   Before answering with hotel results, apply [Before you answer (hotels)](references/hotels.md#before-you-answer-hotels).
-- [references/booking.md](references/booking.md) — `trip`, `checkout`, `submit_agent_payment`, `get_trip`, `get_booking`, `booking_ref` vs `booking_reference`, the multi-domain cart, and the post-booking / ground / car contracts.
+- [references/cars.md](references/cars.md) — `car_search`, offer presentation, adding a rental to the shared trip, readiness, payment roles, fulfillment and both cancellation tool shapes.
+- [references/booking.md](references/booking.md) — `trip`, `checkout`, `submit_agent_payment`, `get_trip`, `get_booking`, `booking_ref` vs `booking_reference`, the multi-domain cart, and shared post-booking / ground contracts.

@@ -1,0 +1,353 @@
+{
+  "observation": {
+    "endpoint": "https://grok.mcp.gojinko.com/",
+    "observed_at_utc": "2026-10-15T03:36:27.382540+00:00",
+    "method": "anonymous MCP initialize and tools/list",
+    "server_info": {
+      "name": "jinko-travel",
+      "title": "jinko-travel",
+      "version": "1.45.0"
+    },
+    "protocol_version": "2025-06-18"
+  },
+  "read_only_search_verification": {
+    "observed_at_utc": "2026-10-15T03:26:27.260720+00:00",
+    "request": {
+      "pick_up": {
+        "airport_code": "LAX",
+        "date_time": "2026-11-20T10:00:00"
+      },
+      "drop_off_date_time": "2026-11-23T10:00:00",
+      "driver_age": 34,
+      "residence_country": "US"
+    },
+    "status": "success",
+    "is_error": false,
+    "offers": 40,
+    "scope": "Direct read-only MCP search only; this does not verify Grok Bot installation, trip creation, checkout, payment, or booking."
+  },
+  "car_search_behavior_from_tool_description": {
+    "branch_local_date_times_require_no_zone": true,
+    "flight_number_input_available": false,
+    "requires_flight_number_always_is_bookable": false,
+    "out_of_hours_pickup_can_be_evaluated": false,
+    "expired_offer_requires_new_search": true,
+    "on_request_fulfillment_is_asynchronous": true
+  },
+  "tool_names": [
+    "find_destination",
+    "flight_calendar",
+    "find_dates",
+    "price_monitoring",
+    "flight_search",
+    "hotel_search",
+    "hotel_details",
+    "trip",
+    "checkout",
+    "submit_agent_payment",
+    "get_trip",
+    "get_booking",
+    "car_search",
+    "flight_price_advice",
+    "flight_refund_preview",
+    "flight_refund_commit",
+    "flight_refund_status",
+    "flight_refund_check",
+    "flight_exchange_shop",
+    "flight_exchange_price",
+    "flight_exchange_commit",
+    "flight_exchange_status",
+    "hotel_cancel_preview",
+    "hotel_cancel_commit",
+    "hotel_cancel_status",
+    "car_cancel_preview",
+    "car_cancel_commit",
+    "car_cancel_status"
+  ],
+  "required_fields": {
+    "find_destination": ["origins", "trip_type"],
+    "flight_calendar": ["origin", "destination", "trip_type"],
+    "find_dates": ["origin", "destination", "trip_type"],
+    "price_monitoring": ["origin", "destination", "departure_date"],
+    "flight_search": [],
+    "hotel_search": [],
+    "hotel_details": [],
+    "trip": [],
+    "checkout": ["trip_id"],
+    "submit_agent_payment": ["trip_id", "shared_payment_token"],
+    "get_trip": ["trip_id"],
+    "get_booking": ["booking_ref", "last_name"],
+    "car_search": ["pick_up", "driver_age", "residence_country"],
+    "flight_price_advice": ["origin", "destination", "departure_date", "trip_type", "cabin_class", "current_price"],
+    "flight_refund_preview": ["booking_ref", "last_name"],
+    "flight_refund_commit": ["booking_ref", "last_name", "quote"],
+    "flight_refund_status": ["booking_ref", "last_name", "operation"],
+    "flight_refund_check": ["booking_ref", "last_name"],
+    "flight_exchange_shop": ["booking_ref", "last_name", "segments_to_exchange"],
+    "flight_exchange_price": ["booking_ref", "last_name", "offer_id"],
+    "flight_exchange_commit": ["booking_ref", "last_name", "offer_id"],
+    "flight_exchange_status": ["booking_ref", "last_name"],
+    "hotel_cancel_preview": ["booking_ref", "last_name"],
+    "hotel_cancel_commit": ["booking_ref", "last_name", "quote", "acknowledged"],
+    "hotel_cancel_status": ["booking_ref", "last_name", "operation"],
+    "car_cancel_preview": ["booking_ref", "last_name"],
+    "car_cancel_commit": ["booking_ref", "last_name", "cancellation_id"],
+    "car_cancel_status": ["booking_ref", "last_name"]
+  },
+  "car_tools": [
+    {
+      "name": "car_search",
+      "title": "Search Car Rentals",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pick_up": {
+            "type": "object",
+            "properties": {
+              "date_time": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$",
+                "description": "Pick-up date-time, BRANCH-LOCAL and zone-less: \"2026-09-12T10:00:00\". Never send a \"Z\" or an offset."
+              },
+              "airport_code": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$",
+                "description": "IATA airport code (e.g. \"LYS\"). The primary path — it needs no resolution hop, so prefer it whenever the user named an airport."
+              },
+              "place": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 100,
+                "description": "Free-text location — a city, district, station or landmark (\"lyon part dieu\"). Resolved server-side. When the text matches several genuinely different rental locations the response carries `candidates` INSTEAD of offers: put those to the user and retry with the chosen candidate's `name` (qualify it with the city — \"City Centre, Lyon\" — when two candidates share a name). Never auto-pick a candidate."
+              },
+              "geo": {
+                "type": "object",
+                "properties": {
+                  "latitude": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90,
+                    "description": "Latitude in decimal degrees."
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180,
+                    "description": "Longitude in decimal degrees."
+                  },
+                  "range": {
+                    "type": "integer",
+                    "minimum": 50,
+                    "description": "Search radius around the coordinates, in metres (minimum 50). The provider returns the 30 closest branches."
+                  }
+                },
+                "required": ["latitude", "longitude", "range"],
+                "additionalProperties": false,
+                "description": "Coordinates plus a radius, for \"near me\" searches. ROUND-TRIP ONLY: `drop_off` must be omitted, or name the exact same place."
+              }
+            },
+            "required": ["date_time"],
+            "additionalProperties": false,
+            "description": "Where and when the car is collected. The place is exactly one of airport_code, place or geo."
+          },
+          "drop_off": {
+            "type": "object",
+            "properties": {
+              "date_time": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$",
+                "description": "Drop-off date-time, branch-local. May instead be given as the top-level `drop_off_date_time`; set only one."
+              },
+              "airport_code": {
+                "$ref": "#/properties/pick_up/properties/airport_code"
+              },
+              "place": {
+                "$ref": "#/properties/pick_up/properties/place"
+              },
+              "geo": {
+                "$ref": "#/properties/pick_up/properties/geo"
+              }
+            },
+            "additionalProperties": false,
+            "description": "Where the car is returned, for a one-way rental. OMIT for a round trip (returned to the pick-up branch) and set `drop_off_date_time` instead."
+          },
+          "drop_off_date_time": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$",
+            "description": "Return date-time when `drop_off` is omitted, branch-local. A rental with no end has no price, so one of this or `drop_off.date_time` is REQUIRED."
+          },
+          "driver_age": {
+            "type": "integer",
+            "minimum": 18,
+            "maximum": 99,
+            "description": "The driver's age at pick-up (18-99). Price-affecting and REQUIRED — ask the user rather than guessing. It is baked into the rate and is never asked again at booking."
+          },
+          "residence_country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "description": "The driver's country of residence, ISO 3166-1 alpha-2. REQUIRED: it changes both the price and which suppliers will rent at all."
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "description": "ISO 4217 display currency (e.g. \"EUR\"). Defaults to the caller's country/locale, else USD, so a mixed cart stays single-currency."
+          },
+          "lang": {
+            "type": "string",
+            "minLength": 2,
+            "description": "BCP-47 language tag for provider text (package names, fuel policy), e.g. \"en-gb\"."
+          },
+          "search_intent": {
+            "type": "string",
+            "description": "What the traveler is looking for in this search, in one or two sentences of their own words, e.g. \"quiet hotel with a gym near Times Square\" or \"cheapest nonstop with a morning departure\". The search uses it to interpret the request and rank its results, so keep the stated preferences in it. Leave out names, contact details and payment details. Optional."
+          }
+        },
+        "required": ["pick_up", "driver_age", "residence_country"],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": true,
+        "idempotentHint": true,
+        "title": "Search Car Rentals"
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "car_cancel_preview",
+      "title": "Preview a car-rental cancellation",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "booking_ref": {
+            "type": "string",
+            "pattern": "^JNK-[A-Z0-9]{6}$",
+            "description": "Trip-level Jinko booking_ref returned by get_trip or submit_agent_payment. Use it to look up the booking with get_booking."
+          },
+          "item_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Stable booked item_id from get_booking.items[]. Select the item to service and send its item_id on every action. May be omitted only when the booking has exactly one item in this domain."
+          },
+          "last_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Last name of the primary traveler on the booking. It verifies the guest."
+          }
+        },
+        "required": ["booking_ref", "last_name"],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": true,
+        "idempotentHint": true,
+        "title": "Preview a car-rental cancellation"
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "car_cancel_commit",
+      "title": "Cancel a car rental",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "booking_ref": {
+            "type": "string",
+            "pattern": "^JNK-[A-Z0-9]{6}$",
+            "description": "Trip-level Jinko booking_ref returned by get_trip or submit_agent_payment. Use it to look up the booking with get_booking."
+          },
+          "item_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Stable booked item_id from get_booking.items[]. Select the item to service and send its item_id on every action. May be omitted only when the booking has exactly one item in this domain."
+          },
+          "last_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Last name of the primary traveler on the booking. It verifies the guest."
+          },
+          "cancellation_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The ccl_ cancellation_id returned by car_cancel_preview."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional cancellation reason."
+          },
+          "manual_ok": {
+            "type": "boolean",
+            "description": "Send true only after a manual-required preview and the customer explicitly agrees to a Jinko agent completing the cancellation."
+          }
+        },
+        "required": ["booking_ref", "last_name", "cancellation_id"],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true,
+        "idempotentHint": false,
+        "title": "Cancel a car rental"
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "car_cancel_status",
+      "title": "Follow a car-rental cancellation",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "booking_ref": {
+            "type": "string",
+            "pattern": "^JNK-[A-Z0-9]{6}$",
+            "description": "Trip-level Jinko booking_ref returned by get_trip or submit_agent_payment. Use it to look up the booking with get_booking."
+          },
+          "item_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Stable booked item_id from get_booking.items[]. Select the item to service and send its item_id on every action. May be omitted only when the booking has exactly one item in this domain."
+          },
+          "last_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Last name of the primary traveler on the booking. It verifies the guest."
+          }
+        },
+        "required": ["booking_ref", "last_name"],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": true,
+        "idempotentHint": true,
+        "title": "Follow a car-rental cancellation"
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    }
+  ]
+}

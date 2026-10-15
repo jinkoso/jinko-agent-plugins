@@ -1,0 +1,245 @@
+{
+  "source": {
+    "repo": "jinkoso/jinko-mcp",
+    "base": "fab0ffc",
+    "branch": "codex/public-mcp-car-rental",
+    "feature_flag": "ENABLE_CAR=true",
+    "deployment": "not_deployed"
+  },
+  "tools": [
+    {
+      "name": "car_search",
+      "description": "Search live car rental availability and return bookable offers. Each offer's offer_id is a trip item token — pass it verbatim to trip(add_item) as trip_item_token to put the rental in a cart, then checkout as normal. There is NO car-specific booking tool.\n\nWHEN TO USE THIS TOOL:\n- The user wants to rent a car / hire a car / needs a vehicle between two dates.\n- You already know the pick-up place, the pick-up and return date-times, the driver's age, and the driver's country of residence. driver_age and residence_country are REQUIRED and both change the price — ask for them, never guess.\n\nNAMING THE PLACE (exactly one of three, per end):\n- airport_code — a 3-letter IATA code (\"LYS\"). Prefer this whenever the user named an airport; it needs no resolution step.\n- place — free text (\"lyon part dieu\", \"Lyon city centre\"). Resolved server-side. If the text matches several genuinely different rental locations, the response comes back with status \"ambiguous_place\" and a candidates list INSTEAD of offers. Put the candidates to the user and retry with the chosen candidate's name — never auto-pick one, because \"Lyon\" is an airport, a rail station and a downtown office that book three different counters.\n- geo — {latitude, longitude, range} for \"near me\". ROUND-TRIP ONLY: omit drop_off and set drop_off_date_time.\nProvider ids (location, city, branch, supplier) are not accepted on this surface.\n\nDATE-TIMES: branch-local \"YYYY-MM-DDTHH:MM:SS\" with NO timezone. A \"Z\" or an offset is rejected — the rental desk works in its own local time. Responses carry each branch's IANA time_zone, which is the only way to turn a local time into an instant.\n\nONE-WAY vs ROUND TRIP: omit drop_off and set drop_off_date_time to return the car to the pick-up branch. For a one-way rental, send drop_off with its own place and date_time.\n\nRESPONSE: offers[], each with offer_id (\"car_…\"), expires_at (~75 minutes — after that, search again), on_request (the supplier confirms manually, so booking settles asynchronously), price, vehicle, package, and pick_up/drop_off branches. total_found / offers_shown / offers_omitted declare any truncation; when offers were dropped, narrow the search rather than paging.\n\nRENTAL COMPANY: package.supplier_name is the rental company the customer physically collects the car from — Avis, Hertz, Europcar, Sixt. Surface it with every offer you present: it is one of the things travelers decide on, and two otherwise identical offers are often different companies at different desks. Do not confuse it with vehicle.name (the car model, \"or similar\" unless model_guaranteed) or package.name (the rate plan, e.g. \"Fully Inclusive\").\n\nMONEY: price.pay_now is the ONLY amount Jinko ever charges. due_at_desk is collected by the rental desk and is display-only, deposit is a card hold, estimated_total is the supplier's FX-movable estimate. Never sum them into a total.\n\nIMPORTANT:\n- An EMPTY cancellation_fees list means the supplier published no schedule. That is UNKNOWN, never \"free cancellation\". A coverage's excess of null means \"not stated\", not \"no excess\".\n- requires_flight_number on a branch is the supplier's policy, and NEITHER value is collectable today: Jinko has no field to carry a flight number. \"always\" means this branch cannot be booked at all — prefer an offer from another branch. \"out_of_hours_pickup\" is reported but never enforced, because the rate rules carry no opening hours to test the pick-up against.\n- Booking a car also needs the booking contact's honorific — pass contact.title (e.g. \"mr\", \"ms\", \"mx\") on trip(upsert_travelers). It is matched against the supplier's own title vocabulary, so an unusual value may not resolve. The readiness gate refuses a car cart without a title, before any card is charged.\n\n**Cost: 1 credit per call.**",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pick_up": {
+            "type": "object",
+            "properties": {
+              "date_time": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$",
+                "description": "Pick-up date-time, BRANCH-LOCAL and zone-less: \"2026-09-12T10:00:00\". Never send a \"Z\" or an offset."
+              },
+              "airport_code": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$",
+                "description": "IATA airport code (e.g. \"LYS\"). The primary path — it needs no resolution hop, so prefer it whenever the user named an airport."
+              },
+              "place": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 100,
+                "description": "Free-text location — a city, district, station or landmark (\"lyon part dieu\"). Resolved server-side. When the text matches several genuinely different rental locations the response carries `candidates` INSTEAD of offers: put those to the user and retry with the chosen candidate's `name` (qualify it with the city — \"City Centre, Lyon\" — when two candidates share a name). Never auto-pick a candidate."
+              },
+              "geo": {
+                "type": "object",
+                "properties": {
+                  "latitude": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90,
+                    "description": "Latitude in decimal degrees."
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180,
+                    "description": "Longitude in decimal degrees."
+                  },
+                  "range": {
+                    "type": "integer",
+                    "minimum": 50,
+                    "description": "Search radius around the coordinates, in metres (minimum 50). The provider returns the 30 closest branches."
+                  }
+                },
+                "required": [
+                  "latitude",
+                  "longitude",
+                  "range"
+                ],
+                "additionalProperties": false,
+                "description": "Coordinates plus a radius, for \"near me\" searches. ROUND-TRIP ONLY: `drop_off` must be omitted, or name the exact same place."
+              }
+            },
+            "required": [
+              "date_time"
+            ],
+            "additionalProperties": false,
+            "description": "Where and when the car is collected. The place is exactly one of airport_code, place or geo."
+          },
+          "drop_off": {
+            "type": "object",
+            "properties": {
+              "date_time": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$",
+                "description": "Drop-off date-time, branch-local. May instead be given as the top-level `drop_off_date_time`; set only one."
+              },
+              "airport_code": {
+                "$ref": "#/properties/pick_up/properties/airport_code"
+              },
+              "place": {
+                "$ref": "#/properties/pick_up/properties/place"
+              },
+              "geo": {
+                "$ref": "#/properties/pick_up/properties/geo"
+              }
+            },
+            "additionalProperties": false,
+            "description": "Where the car is returned, for a one-way rental. OMIT for a round trip (returned to the pick-up branch) and set `drop_off_date_time` instead."
+          },
+          "drop_off_date_time": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$",
+            "description": "Return date-time when `drop_off` is omitted, branch-local. A rental with no end has no price, so one of this or `drop_off.date_time` is REQUIRED."
+          },
+          "driver_age": {
+            "type": "integer",
+            "minimum": 18,
+            "maximum": 99,
+            "description": "The driver's age at pick-up (18-99). Price-affecting and REQUIRED — ask the user rather than guessing. It is baked into the rate and is never asked again at booking."
+          },
+          "residence_country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "description": "The driver's country of residence, ISO 3166-1 alpha-2. REQUIRED: it changes both the price and which suppliers will rent at all."
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "description": "ISO 4217 display currency (e.g. \"EUR\"). Defaults to the caller's country/locale, else USD, so a mixed cart stays single-currency."
+          },
+          "lang": {
+            "type": "string",
+            "minLength": 2,
+            "description": "BCP-47 language tag for provider text (package names, fuel policy), e.g. \"en-gb\"."
+          },
+          "search_intent": {
+            "type": "string",
+            "description": "What the traveler is looking for in this search, in one or two sentences of their own words, e.g. \"quiet hotel with a gym near Times Square\" or \"cheapest nonstop with a morning departure\". The search uses it to interpret the request and rank its results, so keep the stated preferences in it. Leave out names, contact details and payment details. Optional."
+          }
+        },
+        "required": [
+          "pick_up",
+          "driver_age",
+          "residence_country"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "car_cancel_preview",
+      "description": "Prices cancellation of a booked car rental. It changes nothing.\n\nGuest verification: booking_ref is the Jinko JNK-XXXXXX reference (not an airline record locator or a hotel confirmation number) and last_name is the primary traveler's last name; no login is required. Call get_booking first, choose the items[] entry to service and pass its item_id. Use the same booking_ref + item_id + last_name on every step; item_id stays the same after an exchange.\n\nReturns the fee, refund, and a ccl_ cancellation_id. fee_known: false means the amount remains to be confirmed, not that cancellation is free. A manual_required result needs explicit customer consent before a Jinko agent may complete it.\n\nNext step: show the customer the result, obtain explicit approval, then call car_cancel_commit with the cancellation_id.\n\n**Cost: 1 credit per call.**",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "booking_ref": {
+            "type": "string",
+            "pattern": "^JNK-[A-Z0-9]{6}$",
+            "description": "Trip-level Jinko booking_ref returned by get_trip or submit_agent_payment. Use it to look up the booking with get_booking."
+          },
+          "item_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Stable booked item_id from get_booking.items[]. Select the item to service and send its item_id on every action. May be omitted only when the booking has exactly one item in this domain."
+          },
+          "last_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Last name of the primary traveler on the booking. It verifies the guest."
+          }
+        },
+        "required": [
+          "booking_ref",
+          "last_name"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "car_cancel_commit",
+      "description": "Cancels a booked car rental using the ccl_ cancellation_id from car_cancel_preview. Call only after the customer has seen the preview and explicitly approved cancellation.\n\nGuest verification: booking_ref is the Jinko JNK-XXXXXX reference (not an airline record locator or a hotel confirmation number) and last_name is the primary traveler's last name; no login is required. Call get_booking first, choose the items[] entry to service and pass its item_id. Use the same booking_ref + item_id + last_name on every step; item_id stays the same after an exchange.\n\nFor a manual_required preview, send manual_ok: true only after the customer explicitly agrees to a Jinko agent completing it. Never infer that consent or invent an amount. A changed or expired preview is refused without cancelling and must be shown again.\n\nNext step: call car_cancel_status with the same booking identity and item_id.\n\n**Cost: 1 credit per call.**",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "booking_ref": {
+            "type": "string",
+            "pattern": "^JNK-[A-Z0-9]{6}$",
+            "description": "Trip-level Jinko booking_ref returned by get_trip or submit_agent_payment. Use it to look up the booking with get_booking."
+          },
+          "item_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Stable booked item_id from get_booking.items[]. Select the item to service and send its item_id on every action. May be omitted only when the booking has exactly one item in this domain."
+          },
+          "last_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Last name of the primary traveler on the booking. It verifies the guest."
+          },
+          "cancellation_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The ccl_ cancellation_id returned by car_cancel_preview."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional cancellation reason."
+          },
+          "manual_ok": {
+            "type": "boolean",
+            "description": "Send true only after a manual-required preview and the customer explicitly agrees to a Jinko agent completing the cancellation."
+          }
+        },
+        "required": [
+          "booking_ref",
+          "last_name",
+          "cancellation_id"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    {
+      "name": "car_cancel_status",
+      "description": "Reads the latest car-rental cancellation attempt. It changes nothing and takes no operation handle.\n\nGuest verification: booking_ref is the Jinko JNK-XXXXXX reference (not an airline record locator or a hotel confirmation number) and last_name is the primary traveler's last name; no login is required. Call get_booking first, choose the items[] entry to service and pass its item_id. Use the same booking_ref + item_id + last_name on every step; item_id stays the same after an exchange.\n\nUse the same booking_ref, last_name, and item_id used for preview. A pending result is still being completed; poll this tool rather than committing again.\n\n**Cost: 1 credit per call.**",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "booking_ref": {
+            "type": "string",
+            "pattern": "^JNK-[A-Z0-9]{6}$",
+            "description": "Trip-level Jinko booking_ref returned by get_trip or submit_agent_payment. Use it to look up the booking with get_booking."
+          },
+          "item_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Stable booked item_id from get_booking.items[]. Select the item to service and send its item_id on every action. May be omitted only when the booking has exactly one item in this domain."
+          },
+          "last_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Last name of the primary traveler on the booking. It verifies the guest."
+          }
+        },
+        "required": [
+          "booking_ref",
+          "last_name"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  ]
+}

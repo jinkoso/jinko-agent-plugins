@@ -1,0 +1,20 @@
+{
+  "entrypoint_source": "packages/plugin/hosts/grok/skills/jinko-travel/SKILL.md",
+  "shared_vendor": {
+    "repo": "jinkoso/jinko-skills",
+    "commit": "83f2beb9ea860b162af8a3d071df1e96ba2035d9",
+    "path": "skills/jinko-travel"
+  },
+  "shared_vendor_files": [
+    "references/places.md"
+  ],
+  "observed_mcp": {
+    "url": "https://grok.mcp.gojinko.com/",
+    "server_name": "jinko-travel",
+    "server_version": "1.45.0",
+    "protocol_version": "2025-06-18",
+    "observed_at": "2026-10-15",
+    "evidence": "skills/jinko-travel/live-production-car-tools.json",
+    "historical_snapshot": "tool-snapshot.json"
+  }
+}
