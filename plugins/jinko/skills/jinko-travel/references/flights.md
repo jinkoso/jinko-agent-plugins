@@ -213,8 +213,9 @@ Optional filters: `return_date`, `trip_type`, `cabin_class`, `max_stops`, `multi
   party on both `search` and `price_check` calls. A seat count covers adults and children
   only: lap infants under 2 have no seat and are added on top ("two seats for two adults and
   a lap infant" is `{ "adults": 2, "children": 0, "infants": 1 }`).
+  Limits: `adults` 1–9, `children` 0–8, `infants` 0–4; `infants` cannot exceed `adults`, and `adults` + `children` is at most 9 (lap infants are not counted).
 - When the user caps stops, send `max_stops` (0–2); `direct_only` is deprecated on `flight_search`,
-  so send `max_stops: 0` for nonstop flights.
+  so send `max_stops: 0` for nonstop flights. Sending `direct_only` beside a non-zero `max_stops` is an error.
 - When the user specifies a time-of-day window, send the corresponding `departure_time_range`,
   `arrival_time_range`, `return_departure_time_range` or `return_arrival_time_range` as
   `{ "earliest": "HH:MM", "latest": "HH:MM" }` in 24-hour time, with either key optional
@@ -225,6 +226,8 @@ Optional filters: `return_date`, `trip_type`, `cabin_class`, `max_stops`, `multi
 - **A window stated for the trip applies to both legs** ("departures after 8 AM" on a round trip → `departure_time_range` and `return_departure_time_range`) unless the user names one leg.
 - When the user gives a budget, send `max_price` as the whole-trip total for all passengers,
   together with `currency`.
+- `multi_fare` defaults to true (several branded fares per itinerary); send `false` for one fare per itinerary and a much smaller response. `limit` (1–300) caps the TOTAL number of flights returned; it is not a page size.
+- The tool refuses an origin equal to the destination, a departure date that is not in the future, and a return date before the departure date. Correct the input with the user; never change the party to get past a refusal.
 
 Cabin intent applies only to this live `search` mode:
 
@@ -248,6 +251,10 @@ Use cached discovery to narrow to at most three live `flight_search` confirmatio
 ### 2. `price_check` — live pricing for a specific deal from a discovery tool
 
 Example: `{ "price_check": { "offer_token": "token_from_discovery" } }`
+
+`price_check` takes only `offer_token` (plus the top-level `passengers` and `currency`): it accepts no search filters, because the cached offer already has a concrete route, cabin, carrier and price.
+Filter keys added inside it are dropped without an error and change nothing, and sending `search` beside it is refused.
+The alternatives returned with `offer_unavailable` are not narrowed by the filters of the discovery call: drop or flag those that break a constraint the user stated (stops, carriers, times), or run `search` on the same dates with the user's filters.
 
 `price_check` may return status `"offer_unavailable"` when the selected offer no longer matches,
 including its cabin; the same flight may still have other fares. Show any returned alternatives and
