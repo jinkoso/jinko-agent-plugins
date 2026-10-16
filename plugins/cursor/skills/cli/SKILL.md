@@ -48,6 +48,7 @@ Prod and sandbox keys are stored separately in `~/.jinko/config.yaml`. Precedenc
 | `flight-search` | Live pricing — direct search by route + dates, or `--offer-token` price-check (returns bookable `trip_item_token`). Full shop filter set: `--max-stops`, `--departure-time-range`, `--connection-time-*-minutes`, `--refundable-only`, `--checked-bag-included`, `--via-airports`, `--origin-alternate-airports`, … |
 | `hotel-search` | Live hotel search by city/query/geo/hotel-ids |
 | `hotel-details` | Rich metadata (gallery, facilities, policies, per-room details) for a single hotel |
+| `best-price-guarantee claim / get` | Match a lower price found for the same hotel stay on another site: `claim --offer-id <htl_*> --reference-url <url> --screenshot-url <url> --total <decimal> --currency <ISO>`; the answer is `pending` (read it with `get --id`), `offered` (`offer.offer_id` as the only item of its trip, with `trip`) or `declined` (`decline.reason`) |
 | `car-search` | Live car-rental offers — pick-up by `--pick-up-airport` / `--pick-up-place` / `--pick-up-geo lat,lng,range` (exactly one), branch-local `--pick-up-date-time` / `--drop-off-date-time` (no timezone), `--driver-age`, `--residence-country`. Each offer's `offer_id` (`car_*`) is the `trip_item_token`. |
 | `trip` | Create / update a trip: add items, remove items, set travelers + contact (a car rental needs `contact.title`, the honorific) |
 | `select-ancillaries` | Add baggage / seats / meals to a trip item |
