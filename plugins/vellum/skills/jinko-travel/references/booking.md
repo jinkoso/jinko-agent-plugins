@@ -26,6 +26,10 @@ Operations:
 - `select_ancillaries`: select bags, seats, meals for a quoted trip item. Requires `trip_id` and
   `item_id`.
 
+A searched flight, hotel or car offer stays bookable for about 75 minutes (less when the supplier sets an earlier deadline; a car offer carries its own `expires_at`).
+`trip(add_item)` re-prices the offer, so an expired one is refused there: `offer_expired` ("This offer has expired. Search again.") or `offer_unavailable`.
+Run the same search again and let the user choose from the fresh results; never re-add the old token or quote its old price.
+
 Traveler data — IMPORTANT: NEVER invent or fabricate traveler data. Before calling
 `upsert_travelers`, you MUST ask the user for the required fields:
 
@@ -34,6 +38,8 @@ Traveler data — IMPORTANT: NEVER invent or fabricate traveler data. Before cal
   a flight, optional for hotel-only trips
 - Contact: `email`, `phone` in international format: a leading `+` and the country code (`+12025550147`).
   A number without the leading `+` is rejected with `INVALID_PHONE_NUMBER`.
+  Spaces, hyphens, dots and parentheses are accepted and removed. The refusal comes before anything runs, so nothing is written: ask for the number with its country code and send `upsert_travelers` again.
+- Optional, only when the user gives them: `nationality` and `passport_country` (ISO 3166-1 alpha-2), `passport_number`, `passport_expiry` (YYYY-MM-DD), `frequent_flyer` (`{ airline, number }`, airline = the IATA code of the issuing carrier), `known_traveler_number` / `redress_number`. Never invent them.
 - Cars: the real booking contact's `title` honorific, using a value accepted by the current schema.
 
 If a required field is missing, ASK the user. Do not use placeholder or default values.
@@ -96,6 +102,9 @@ Jinko prices the trip (schedules a quote and polls until it completes) and retur
 a Jinko page where the user pays — all in one synchronous call. Checkout books nothing and charges
 nothing: the fulfillment and `booking_ref` appear when the user presses Pay or you call
 `submit_agent_payment`.
+
+When an item's price moved between the search and the quote, `checkout` says so: the text answer carries a line "Price changed for item …: <original> → <current> (<delta>, up|down)" before the checkout URL, and `structuredContent` carries `price_changes[]` (`item_id`, `original`, `current`, `delta`, each price a money object with `display`). `get_trip` shows the same move on the item.
+Checkout proceeds at the current price. Tell the user the original and the new price (quote each `display` verbatim) before you hand over `checkout_url` or pay with `submit_agent_payment`.
 
 - Human path: open the returned `checkout_url` in a browser to pay. Stripe webhooks finalize the
   booking after payment succeeds; no client-side confirm step is required.
@@ -177,7 +186,9 @@ Stripe checkout. Use `trip(add_item)` with a flight `trip_item_token` (`offer__*
 No login required — guests authenticate with `booking_ref` + `last_name`; an owning credential may omit
 `last_name`. Always start with `get_booking`: choose the intended `items[]` entry, read its servicing
 eligibility, and send the same `booking_ref` + `item_id` on every action, including commit and status.
-A 409 with `items[]` asks you to select an `item_id` and retry.
+A 409 `item_selection_required` with `items[]` asks you to select an `item_id`: pick the item the user
+means (ask when more than one fits), then retry with its `item_id`.
+`item_id` is the stable booked item, even after an exchange: keep using it.
 
 The shared contract for every servicing tool:
 
@@ -210,7 +221,8 @@ calling):
   confirms, commit the same `offer_id` without one, which sends the request to Jinko support. That commit
   answers with `manual_handling: { status: "pending" }`; tell the traveller Jinko support will complete
   the exchange and the refund; until then `get_booking` shows the exchange as with Jinko support.
-- `hotel_cancel` — cancel a hotel booking: preview → (user confirms) → commit → status.
+- `hotel_cancel` — cancel a hotel booking: preview (`booking_ref` + `item_id`, plus `last_name` for a guest) → (user confirms) → commit with the same identity, `quote` and `acknowledged` → it returns an `svc_…` operation → `status` with `operation: "svc_…"`.
+  If the refund moved since the preview, the commit is refused with a fresh quote: show that one. Never use the legacy one-shot `action: "cancel"`.
 - `ground_cancel` / `ground_exchange` (only when listed in your tools; not on every deployment) —
   cancel, or exchange for a new date and/or stations: preview → (user confirms) → commit → status.
   Refunds may be split between the original card and a carrier voucher; positive `delta_amount` = the
