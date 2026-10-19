@@ -48,6 +48,7 @@ Prod and sandbox keys are stored separately in `~/.jinko/config.yaml`. Precedenc
 | `flight-search` | Live pricing — direct search by route + dates, or `--offer-token` price-check (returns bookable `trip_item_token`). Full shop filter set: `--max-stops`, `--departure-time-range`, `--connection-time-*-minutes`, `--refundable-only`, `--checked-bag-included`, `--via-airports`, `--origin-alternate-airports`, … |
 | `hotel-search` | Live hotel search by city/query/geo/hotel-ids |
 | `hotel-details` | Rich metadata (gallery, facilities, policies, per-room details) for a single hotel |
+| `best-price-guarantee claim / get` | Match a lower price found for the same hotel stay on another site: `claim --trip-item-token <htl_*> --reference-url <url> --screenshot-url <url> --total <decimal> --currency <ISO>`; the answer is `pending` (read it with `get --id`), `offered` (`offer.trip_item_token` as the only item of its trip, with `trip`) or `declined` (`decline.reason`) |
 | `car-search` | Live car-rental offers — pick-up by `--pick-up-airport` / `--pick-up-place` / `--pick-up-geo lat,lng,range` (exactly one), branch-local `--pick-up-date-time` / `--drop-off-date-time` (no timezone), `--driver-age`, `--residence-country`. Each offer's `offer_id` (`car_*`) is the `trip_item_token`. |
 | `trip` | Create / update a trip: add items, remove items, set travelers + contact (a car rental needs `contact.title`, the honorific) |
 | `select-ancillaries` | Add baggage / seats / meals to a trip item |
@@ -56,13 +57,13 @@ Prod and sandbox keys are stored separately in `~/.jinko/config.yaml`. Precedenc
 | `trip-status` | Full status: cart, quote, fulfillment, bookings, and the Jinko `booking_ref` once payment starts (the Pay button or `agent-pay submit`; `checkout` alone books nothing) — it can be present before payment is authorized, so read `payment_attempt.payment_status` and `fulfillment.status` for paid (the `--booking-ref` for `get-booking` / `hotel-cancel` / `car-cancel` / `refund`) |
 | `get-booking` | Retrieve a booking by `JNK-*` ref + last name (guest access). Carries `calendar` — the `.ics` files for the booking's flights and stays; `--format json` carries their contents. |
 | `refund check / commit / status` | Voluntary refund flow |
-| `car-cancel preview / commit / status` | Car-rental cancellation: `preview` quotes the fee and mints the `cancellation_id` the commit is bound to; `commit` cancels (`--manual-ok` hands a `manual_required` quote to a Jinko agent, only with the customer's consent); `status` re-reads the latest attempt. No `car-exchange` exists — modifying a rental is not offered. |
+| `car-cancel preview / commit / status` | Car-rental cancellation: `preview` quotes the fee and mints the `quote_id` the commit is bound to (`commit --quote-id`); `commit` cancels (`--manual-ok` hands a `manual_required` quote to a Jinko agent, only with the customer's consent); `status` re-reads the latest attempt. No `car-exchange` exists — modifying a rental is not offered. |
 | `schema <command>` | Print request/response schema for a command |
 | `config` | Read/write CLI config |
 
 Run `jinko <command> --help` for flags on any command.
 
-Ancillaries: use `--select bag_20kg@pax_1,bag_20kg@pax_2` for per-passenger bags; bare IDs still use `--pax` and `--quantity`.
+Ancillaries: use `--select bag_20kg@pax_1,bag_20kg@pax_2` for per-traveler bags; bare IDs use `--traveler-ref` and `--quantity`.
 
 ## Canonical booking flow
 
@@ -104,8 +105,8 @@ jinko agent-pay submit --trip-id tr_ABC --token spt_xxx
 # 6. Poll status
 jinko trip-status --trip-id tr_ABC
 # → booking_ref (JNK-…) is the Jinko reference — pass it as --booking-ref to
-#   get-booking / hotel-cancel / refund. bookings[].booking_reference is the
-#   supplier's confirmation, not that handle.
+#   get-booking / hotel-cancel / refund. bookings[].supplier_references are the
+#   supplier's own confirmations, not that handle.
 ```
 
 ## Hotel flow
@@ -133,15 +134,15 @@ jinko car-search --pick-up-place "Lyon Part-Dieu" …
 
 # Book: the offer_id (car_*) is the trip item token; a car cart needs the contact's honorific (title)
 jinko trip --trip-item-token car_9f3b2a17c4e8d501 \
-  --travelers '[{"first_name":"Jane","last_name":"Doe","passenger_type":"ADULT"}]' \
+  --travelers '[{"first_name":"Jane","last_name":"Doe","traveler_type":"adult"}]' \
   --contact '{"email":"jane@example.com","phone":"+33612345678","title":"ms"}'
 jinko checkout --trip-id tr_ABC
 
-# Cancel: preview first (quotes the fee, mints the cancellation_id), confirm with the user, then commit
-jinko get-booking --booking-ref JNK-A7B3X9 --last-name Doe          # find the car item_id
-jinko car-cancel preview --booking-ref JNK-A7B3X9 --item-id 42 --last-name Doe
-jinko car-cancel commit  --booking-ref JNK-A7B3X9 --item-id 42 --last-name Doe --cancellation-id ccl_…
-jinko car-cancel status  --booking-ref JNK-A7B3X9 --item-id 42 --last-name Doe
+# Cancel: preview first (quotes the fee, mints the quote_id), confirm with the user, then commit
+jinko get-booking --booking-ref JNK-A7B3X9 --last-name Doe          # find the car booked_item_id
+jinko car-cancel preview --booking-ref JNK-A7B3X9 --booked-item-id itm_… --last-name Doe
+jinko car-cancel commit  --booking-ref JNK-A7B3X9 --booked-item-id itm_… --last-name Doe --quote-id ccl_…
+jinko car-cancel status  --booking-ref JNK-A7B3X9 --booked-item-id itm_… --last-name Doe
 ```
 
 Reading a car search result: `price.pay_now` is the ONLY amount Jinko charges (`due_at_desk` is paid at the counter, `deposit` is a card hold — never sum them); `package.supplier_name` is the rental company the customer collects from; an EMPTY `cancellation_fees` list means the fee is UNKNOWN, never "free cancellation". On a cancel preview, `fee_known: false` means the same, and `manual_required: true` means a person has to complete it — `car-cancel commit --manual-ok` hands it to a Jinko agent, only once the customer has agreed. Changing a rental (dates, vehicle, extras) is not available: the options are keeping the booking or cancelling it and searching again.
@@ -173,10 +174,10 @@ jinko trip --trip-id tr_ABC --remove-item-id it_123 --trip-item-token "offer_new
 # Retrieve a booking (guest access — no auth needed beyond ref + last name)
 jinko get-booking --booking-ref JNK-A7B3X9 --last-name Doe
 
-# Refund
-jinko refund check --item-id 42 --booking-ref JNK-A7B3X9 --last-name Doe
-jinko refund commit --item-id 42 --booking-ref JNK-A7B3X9 --last-name Doe
-jinko refund status --item-id 42 --booking-ref JNK-A7B3X9 --last-name Doe
+# Refund: preview, show the refund to the customer, commit what they agreed to, then poll
+jinko refund preview --booked-item-id itm_… --booking-ref JNK-A7B3X9 --last-name Doe
+jinko refund commit --booked-item-id itm_… --booking-ref JNK-A7B3X9 --last-name Doe --quote-id svq_… --acknowledged '<preview refund JSON>'
+jinko refund status --booked-item-id itm_… --booking-ref JNK-A7B3X9 --last-name Doe --operation svc_…
 ```
 
 ## Output tips
@@ -204,13 +205,13 @@ jinko refund status --item-id 42 --booking-ref JNK-A7B3X9 --last-name Doe
 
 ## Servicing a selected booked item
 
-Run `get-booking --booking-ref <ref>` first (guests add `--last-name`). Select the intended `items[].item_id` and inspect its `servicing` eligibility. Pass `--booking-ref` and the same `--item-id` to refund, exchange, hotel-cancel and car-cancel actions, including status polls. The ID remains stable after an exchange. Owning credentials may omit the surname; guests supply it. When a 409 `item_selection_required` lists several items, choose one from `items[]` before retrying.
+Run `get-booking --booking-ref <ref>` first (guests add `--last-name`). Select the intended `items[].booked_item_id` and inspect its `servicing` eligibility. Pass `--booking-ref` and the same `--booked-item-id` to refund, exchange, hotel-cancel and car-cancel actions, including status polls. The ID remains stable after an exchange. Owning credentials may omit the surname; guests supply it. When a 409 `item_selection_required` lists several items, choose one from `items[]` before retrying.
 
 ## Select seats before checkout
 
 Run `jinko select-ancillaries --trip-id <id> --item-id <id> --seat seat_2202_0:pax_1:14A --seat seat_2202_0:pax_2:14B`.
 Get offers and seat numbers from `get-ancillaries` (`seat_map` per segment), and
-`pax_ref_id` from trip travelers via `trip-status`. Read `price_money` for the exact
-price. Choose one available seat per passenger per segment and ask before adding
+`traveler_ref` from trip travelers via `trip-status`. Read `price_money` for the exact
+price. Choose one available seat per traveler per segment and ask before adding
 paid seats. Selections replace the previous set: combine `--select` and `--seat`
 to retain both.

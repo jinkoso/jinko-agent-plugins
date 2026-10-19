@@ -1,7 +1,7 @@
 {
-  "version": "3.7.0",
-  "source": "jinkoso/jinko-dev-tools@d389795133518b90696d18d5ccd18bff5ec8f7de",
-  "jinko_skills": "83f2beb9ea860b162af8a3d071df1e96ba2035d9",
+  "version": "4.0.2",
+  "source": "jinkoso/jinko-dev-tools@69e2125cf86ba80904c61a6ca04b2096c5905992",
+  "jinko_skills": "fb287380deda9f3c909294248ddcad0149233374",
   "grok": {
     "entrypoint_source": "packages/plugin/hosts/grok/skills/jinko-travel/SKILL.md",
     "shared_vendor_files": [
