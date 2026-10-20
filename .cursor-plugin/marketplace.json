@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Jinko travel plugins for Cursor and Grok Bot",
-    "version": "4.0.2"
+    "version": "4.0.3"
   },
   "plugins": [
     {

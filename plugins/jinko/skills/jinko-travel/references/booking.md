@@ -34,8 +34,10 @@ Traveler data — IMPORTANT: NEVER invent or fabricate traveler data. Before cal
 `upsert_travelers`, you MUST ask the user for the required fields:
 
 - Always: `first_name`, `last_name`, `passenger_type` (`ADULT` 12+, `CHILD` 2–11, `INFANT` under 2)
-- Flights only: `date_of_birth` (YYYY-MM-DD), `gender` (`MALE` / `FEMALE`, upper case) — required when the trip contains
-  a flight, optional for hotel-only trips
+- `date_of_birth` (YYYY-MM-DD) — required when the trip contains a flight, and for every `CHILD` or `INFANT` staying
+  at a hotel (the room is priced by the children's ages); optional for an adult on a hotel-only trip
+- Flights only: `gender` (`MALE` / `FEMALE`, upper case) — required when the trip contains a flight, optional for
+  hotel-only trips
 - Contact: `email`, `phone` in international format: a leading `+` and the country code (`+12025550147`).
   A number without the leading `+` is rejected with `INVALID_PHONE_NUMBER`.
   Spaces, hyphens, dots and parentheses are accepted and removed. The refusal comes before anything runs, so nothing is written: ask for the number with its country code and send `upsert_travelers` again.
