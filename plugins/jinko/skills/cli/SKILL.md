@@ -117,6 +117,12 @@ jinko hotel-search --city "Paris" --checkin 2026-07-15 --checkout 2026-07-18 --a
 
 # Add to trip (hotel items use htl_ prefixed tokens)
 jinko trip --trip-item-token "htl_xxx:rate_yyy"
+
+# Travelers: a child or infant staying at the hotel needs date_of_birth (the room is priced by the
+# children's ages); an adult on a hotel-only trip may omit it. gender is for flights only.
+jinko trip --trip-id tr_ABC \
+  --travelers '[{"first_name":"Jane","last_name":"Doe","traveler_type":"adult"},{"first_name":"Tom","last_name":"Doe","traveler_type":"child","date_of_birth":"2019-04-02"}]' \
+  --contact '{"email":"jane@example.com","phone":"+33612345678"}'
 # Mixed carts work: add both flight and hotel items to the same trip_id → single Stripe checkout
 ```
 

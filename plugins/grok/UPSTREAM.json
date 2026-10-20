@@ -2,7 +2,7 @@
   "entrypoint_source": "packages/plugin/hosts/grok/skills/jinko-travel/SKILL.md",
   "shared_vendor": {
     "repo": "jinkoso/jinko-skills",
-    "commit": "fb287380deda9f3c909294248ddcad0149233374",
+    "commit": "1077ecc7e2dbed005b748c0bd0ce4bf4ce176a4a",
     "path": "skills/jinko-travel"
   },
   "shared_vendor_files": [
