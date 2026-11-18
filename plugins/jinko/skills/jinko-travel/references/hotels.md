@@ -31,9 +31,10 @@ MODE A (rate lookup — the user named a specific hotel):
   `HOTEL_NAME_LOW_CONFIDENCE` if no candidate scores ≥ 0.7; see the error handling below.
 - `{ hotel_ids }`: re-shop a known set (from a prior search result).
 - In Mode A: the property filters (`min_rating`, the star range, `min_reviews`, `hotel_type_ids`,
-  `chain_ids`, `facility_ids`) cannot be combined with `hotel_name` / `hotel_ids` — the request is
-  rejected (the user named the property). `max_results` does not limit Mode A: every named hotel that
-  has rates is returned. `filters.max_budget_per_night` still applies. The response includes `nearby_alternatives` — up to
+  `chain_ids`, `facility_ids`) do not apply — the named hotel is priced as if they were not sent (the
+  user named the property). The same holds when a `query` is read as one hotel
+  (`destination_resolution.shape` `hotel_name`). `max_results` does not limit Mode A: every named
+  hotel that has rates is returned. `filters.max_budget_per_night` still applies. The response includes `nearby_alternatives` — up to
   40 hotels within ~3 km of the matched property, in the same response shape so the user can compare.
 
 MODE B (hotel search — the user is exploring a destination):
