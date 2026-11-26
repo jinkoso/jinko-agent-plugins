@@ -51,7 +51,7 @@ Prod and sandbox keys are stored separately in `~/.jinko/config.yaml`. Precedenc
 | `best-price-guarantee claim / get` | Match a lower price found for the same hotel stay on another site: `claim --trip-item-token <htl_*> --reference-url <url> --screenshot-url <url> --total <decimal> --currency <ISO>`; the answer is `pending` (read it with `get --id`), `offered` (`offer.trip_item_token` as the only item of its trip, with `trip`) or `declined` (`decline.reason`) |
 | `car-search` | Live car-rental offers — pick-up by `--pick-up-airport` / `--pick-up-place` / `--pick-up-geo lat,lng,range` (exactly one), branch-local `--pick-up-date-time` / `--drop-off-date-time` (no timezone), `--driver-age`, `--residence-country`. Each offer's `offer_id` (`car_*`) is the `trip_item_token`. |
 | `trip` | Create / update a trip: add items, remove items, set travelers + contact (a car rental needs `contact.title`, the honorific) |
-| `select-ancillaries` | Add baggage / seats / meals to a trip item |
+| `select-ancillaries` | Add baggage / seats / meals / assistance to a trip item |
 | `checkout` | Finalize a trip → returns `checkout_url` (human pays in browser) + `agent_spt_params` (agent pays programmatically). `book` is a deprecated alias. |
 | `agent-pay submit` | Pay programmatically with a Shared Payment Token (`--trip-id` + `--token`); returns the Jinko `booking_ref` once authorized; on 3-D Secure it returns `payment_status: "requires_authentication"` and an `authentication_url` (no `checkout_url`); only a declined card falls back to `checkout_url` |
 | `trip-status` | Full status: cart, quote, fulfillment, bookings, and the Jinko `booking_ref` once payment starts (the Pay button or `agent-pay submit`; `checkout` alone books nothing) — it can be present before payment is authorized, so read `payment_attempt.payment_status` and `fulfillment.status` for paid (the `--booking-ref` for `get-booking` / `hotel-cancel` / `car-cancel` / `refund`) |
@@ -221,3 +221,12 @@ Get offers and seat numbers from `get-ancillaries` (`seat_map` per segment), and
 price. Choose one available seat per traveler per segment and ask before adding
 paid seats. Selections replace the previous set: combine `--select` and `--seat`
 to retain both.
+
+## Request special meals or assistance
+
+`get-ancillaries` lists free special meal and assistance offers with their code
+(e.g. `VGML` or `WCHR`), label, segment and eligible traveler types. Select one
+per traveler and segment with
+`jinko select-ancillaries --trip-id <id> --item-id <id> --select <offer_id>@<traveler_ref>`.
+The airline confirms requests later. Check `get-booking` for each request’s status
+(`pending`, `confirmed` or `failed`).
